@@ -949,6 +949,8 @@ c----------------------------------------------------------------------
       ! integerate in time
       if (ppiclf_imethod .eq. 1) 
      >   call ppiclf_solve_IntegrateRK3(iout)
+      if (ppiclf_imethod .eq. 2) 
+     >   call ppiclf_solve_IntegrateRK3f(iout)
       if (ppiclf_imethod .eq. -1) 
      >   call ppiclf_solve_IntegrateRK3s(iout)
 
@@ -1018,6 +1020,54 @@ c----------------------------------------------------------------------
       return
       end
 c----------------------------------------------------------------------
+      subroutine ppiclf_solve_IntegrateRK3f(iout)
+!
+!     the 'f' stands for FAST! 
+!
+      implicit none
+!
+      include "PPICLF"
+! 
+! Internal: 
+! 
+      integer*4 i, ndum, nstage, istage
+!
+! Output:
+!
+      logical iout
+!
+      ! save stage 1 solution
+      ndum = PPICLF_NPART*PPICLF_LRS
+      do i=1,ndum
+         ppiclf_y1(i) = ppiclf_y(i,1)
+      enddo
+
+      ! get rk3 coeffs
+      call ppiclf_solve_SetRK3Coeff(ppiclf_dt)
+
+      nstage = 3
+      do istage=1,nstage
+
+         ! evaluate ydot using frozen carrier phase
+         call ppiclf_solve_SetYdot_fast
+
+         ! rk3 integrate
+         do i=1,ndum
+c            ndum = PPICLF_NPART*PPICLF_LRS
+            ppiclf_y(i,1) =  ppiclf_rk3coef(1,istage)*ppiclf_y1   (i)
+     >                     + ppiclf_rk3coef(2,istage)*ppiclf_y    (i,1)
+     >                     + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
+         enddo
+      enddo
+
+      if (ppiclf_lproj .and. ppiclf_overlap) 
+     >     call ppiclf_solve_ProjectParticleGrid
+
+      iout = .true.
+
+      return
+      end
+c----------------------------------------------------------------------
       subroutine ppiclf_solve_IntegrateRK3s(iout)
 !
       implicit none
@@ -1066,6 +1116,18 @@ c----------------------------------------------------------------------
       return
       end
 c----------------------------------------------------------------------
+      subroutine ppiclf_solve_SetYdot_fast
+!
+      implicit none
+!
+      include "PPICLF"
+! 
+      call ppiclf_solve_InitSolve_fast
+      call ppiclf_user_SetYdot
+
+      return
+      end
+c----------------------------------------------------------------------
       subroutine ppiclf_solve_SetYdot
 !
       implicit none
@@ -1074,6 +1136,47 @@ c----------------------------------------------------------------------
 ! 
       call ppiclf_solve_InitSolve
       call ppiclf_user_SetYdot
+
+      return
+      end
+c----------------------------------------------------------------------
+      subroutine ppiclf_solve_InitSolve_fast
+!
+      implicit none
+!
+      include "PPICLF"
+! 
+! Internal: 
+! 
+      integer*4 i, j
+!
+      call ppiclf_comm_CreateBin
+      call ppiclf_comm_FindParticle
+      call ppiclf_comm_MoveParticle
+      if (ppiclf_overlap) 
+     >   call ppiclf_comm_MapOverlapMesh
+      if (ppiclf_lintp .and. ppiclf_int_icnt .ne. 0) 
+     >   call ppiclf_solve_InterpParticleGrid
+      call ppiclf_solve_RemoveParticle
+
+      if (ppiclf_lsubsubbin .or. ppiclf_lproj) then
+         call ppiclf_comm_CreateGhost
+         call ppiclf_comm_MoveGhost
+      endif
+
+!---- Do not project until RK3 is over
+c      if (ppiclf_lproj .and. ppiclf_overlap) 
+c     >   call ppiclf_solve_ProjectParticleGrid
+
+      if (ppiclf_lsubsubbin) 
+     >   call ppiclf_solve_SetNeighborBin
+
+      ! Zero 
+      do i=1,PPICLF_LPART
+      do j=1,PPICLF_LRS
+         ppiclf_ydotc(j,i) = 0.0d0
+      enddo
+      enddo
 
       return
       end
