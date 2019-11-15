@@ -326,6 +326,160 @@
       return
       end
 !-----------------------------------------------------------------------
+      subroutine ppiclf_solve_NearestWall(i)
+!
+      implicit none
+!
+      include "PPICLF"
+! 
+! Input:
+! 
+      integer*4 i
+! 
+! Internal: 
+! 
+      real*8 ydum(PPICLF_LRS), rpropdum(PPICLF_LRP)
+      real*8 A(3),B(3),C(3),AB(3),AC(3), dist2, xdist2, ydist2,
+     >       dist_total
+      integer*4 i_iim, i_iip, i_jjm, i_jjp, i_kkm, i_kkp, j, j_ii, j_jj,
+     >          j_kk, jp
+      real*8 rnx, rny, rnz, area, rpx1, rpy1, rpz1, rpx2, rpy2, rpz2,
+     >       rflip, a_sum, rd, rdist, theta, tri_area, rthresh,
+     >       ab_dot_ac, ab_mag, ac_mag, zdist2
+      integer*4 istride, k, kmax, kp, kkp, kk
+! 
+      i_iim = ppiclf_nb_r(1,i) - 1
+      i_iip = ppiclf_nb_r(1,i) + 1
+      i_jjm = ppiclf_nb_r(2,i) - 1
+      i_jjp = ppiclf_nb_r(2,i) + 1
+      i_kkm = ppiclf_nb_r(3,i) - 1
+      i_kkp = ppiclf_nb_r(3,i) + 1
+
+      dist2 = ppiclf_d2chk(3)**2
+
+      ! Skip particle-to-particle collisions
+
+      istride = ppiclf_ndim
+      do j=1,ppiclf_nwall
+
+         rnx  = ppiclf_wall_n(1,j)
+         rny  = ppiclf_wall_n(2,j)
+         rnz  = 0.0d0
+         area = ppiclf_wall_n(3,j)
+         rpx1 = ppiclf_cp_map(1,i)
+         rpy1 = ppiclf_cp_map(2,i)
+         rpz1 = 0.0d0
+         rpx2 = ppiclf_wall_c(1,j)
+         rpy2 = ppiclf_wall_c(2,j)
+         rpz2 = 0.0d0
+         rpx2 = rpx2 - rpx1
+         rpy2 = rpy2 - rpy1
+
+         if (ppiclf_ndim .eq. 3) then
+            rnz  = ppiclf_wall_n(3,j)
+            area = ppiclf_wall_n(4,j)
+            rpz1 = ppiclf_cp_map(3,i)
+            rpz2 = ppiclf_wall_c(3,j)
+            rpz2 = rpz2 - rpz1
+         endif
+    
+         rflip = rnx*rpx2 + rny*rpy2 + rnz*rpz2
+         if (rflip .gt. 0.0d0) then
+            rnx = -1.0d0*rnx
+            rny = -1.0d0*rny
+            rnz = -1.0d0*rnz
+         endif
+
+
+         a_sum = 0.0d0
+         kmax = 2
+         if (ppiclf_ndim .eq. 3) kmax = 3
+         do k=1,kmax 
+            kp = k+1
+            if (kp .gt. kmax) kp = kp-kmax ! cycle
+            
+            kk   = istride*(k-1)
+            kkp  = istride*(kp-1)
+            rpx1 = ppiclf_wall_c(kk+1,j)
+            rpy1 = ppiclf_wall_c(kk+2,j)
+            rpz1 = 0.0d0
+            rpx2 = ppiclf_wall_c(kkp+1,j)
+            rpy2 = ppiclf_wall_c(kkp+2,j)
+            rpz2 = 0.0d0
+
+            if (ppiclf_ndim .eq. 3) then
+               rpz1 = ppiclf_wall_c(kk+3,j)
+               rpz2 = ppiclf_wall_c(kkp+3,j)
+            endif
+
+            rd   = -(rnx*rpx1 + rny*rpy1 + rnz*rpz1)
+
+            rdist = abs(rnx*ppiclf_cp_map(1,i)+rny*ppiclf_cp_map(2,i)
+     >                 +rnz*ppiclf_cp_map(3,i)+rd)
+            rdist = rdist/sqrt(rnx**2 + rny**2 + rnz**2)
+
+            ! give a little extra room for walls (2x)
+            if (rdist .gt. 2.0d0*ppiclf_d2chk(3)) goto 1511
+
+            ydum(1) = ppiclf_cp_map(1,i) - rdist*rnx
+            ydum(2) = ppiclf_cp_map(2,i) - rdist*rny
+            ydum(3) = 0.0d0
+
+            A(1) = ydum(1)
+            A(2) = ydum(2)
+            A(3) = 0.0d0
+
+            B(1) = rpx1
+            B(2) = rpy1
+            B(3) = 0.0d0
+
+            C(1) = rpx2
+            C(2) = rpy2
+            C(3) = 0.0d0
+
+            AB(1) = B(1) - A(1)
+            AB(2) = B(2) - A(2)
+            AB(3) = 0.0d0
+
+            AC(1) = C(1) - A(1)
+            AC(2) = C(2) - A(2)
+            AC(3) = 0.0d0
+
+            if (ppiclf_ndim .eq. 3) then
+               ydum(3) = ppiclf_cp_map(3,i) - rdist*rnz
+               A(3) = ydum(3)
+               B(3) = rpz1
+               C(3) = rpz2
+               AB(3) = B(3) - A(3)
+               AC(3) = C(3) - A(3)
+
+               AB_DOT_AC = AB(1)*AC(1) + AB(2)*AC(2) + AB(3)*AC(3)
+               AB_MAG = sqrt(AB(1)**2 + AB(2)**2 + AB(3)**2)
+               AC_MAG = sqrt(AC(1)**2 + AC(2)**2 + AC(3)**2)
+               theta  = acos(AB_DOT_AC/(AB_MAG*AC_MAG))
+               tri_area = 0.5d0*AB_MAG*AC_MAG*sin(theta)
+            elseif (ppiclf_ndim .eq. 2) then
+               AB_MAG = sqrt(AB(1)**2 + AB(2)**2)
+               tri_area = AB_MAG
+            endif
+            a_sum = a_sum + tri_area
+         enddo
+
+         rthresh = 1.10d0 ! keep it from slipping through crack on edges
+         if (a_sum .gt. rthresh*area) cycle
+
+         jp = 0
+         call ppiclf_user_EvalNearestNeighbor(i,jp,ppiclf_cp_map(1,i)
+     >                                 ,ppiclf_cp_map(1+PPICLF_LRS,i)
+     >                                 ,ydum
+     >                                 ,rpropdum)
+
+ 1511 continue
+      enddo
+
+      return
+      end
+!-----------------------------------------------------------------------
       subroutine ppiclf_solve_NearestNeighbor(i)
 !
       implicit none
