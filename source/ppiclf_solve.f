@@ -23,7 +23,7 @@
      >   call ppiclf_exittr('Invalid number of particles$',
      >                      0.0,ppiclf_npart+npart)
 
-      call ppiclf_printsi('      -Begin copy particles$',npart)
+      call ppiclf_printsi('      -End copy particles$',npart)
 
       ! First, append arrays onto existing arrays
       call ppiclf_copy(ppiclf_y(1,ppiclf_npart+1),
@@ -1854,8 +1854,11 @@ c----------------------------------------------------------------------
 !
 ! Internal:
 !
-      real*8 rnx,rny,rnz,rpx1,rpy1,rpz1,rpx2,rpy2,rpz2,rflip,rd,rdist
-      integer*4 j, istride
+      real*8 A(3),B(3),C(3),AB(3),AC(3), ydum(3)
+      real*8 rnx, rny, rnz, area, rpx1, rpy1, rpz1, rpx2, rpy2, rpz2,
+     >       rflip, a_sum, rd, rdist, theta, tri_area, rthresh,
+     >       ab_dot_ac, ab_mag, ac_mag
+      integer*4 j, istride, k, kmax, kp, kkp, kk
 !
       istride = ppiclf_ndim
       ppiclf_nwall_m = 0
@@ -1906,15 +1909,88 @@ c----------------------------------------------------------------------
          rdist = rdist/sqrt(rnx**2 + rny**2 + rnz**2)
          rdist = rdist*2.0d0 ! Mirror
 
-         if (rdist .gt. ppiclf_d2chk(2)) goto 1511
+         if (rdist .gt. ppiclf_d2chk(3)) goto 1511
 
+         a_sum = 0.0d0
+         kmax = 2
+         if (ppiclf_ndim .eq. 3) kmax = 3
+         do k=1,kmax 
+            kp = k+1
+            if (kp .gt. kmax) kp = kp-kmax ! cycle
+            
+            kk   = istride*(k-1)
+            kkp  = istride*(kp-1)
+            rpx1 = ppiclf_wall_c(kk+1,j)
+            rpy1 = ppiclf_wall_c(kk+2,j)
+            rpz1 = 0.0d0
+            rpx2 = ppiclf_wall_c(kkp+1,j)
+            rpy2 = ppiclf_wall_c(kkp+2,j)
+            rpz2 = 0.0d0
+
+            if (ppiclf_ndim .eq. 3) then
+               rpz1 = ppiclf_wall_c(kk+3,j)
+               rpz2 = ppiclf_wall_c(kkp+3,j)
+            endif
+
+            rd   = -(rnx*rpx1 + rny*rpy1 + rnz*rpz1)
+
+            rdist = abs(rnx*rx2(1)+rny*rx2(2)
+     >                 +rnz*rx2(3)+rd)
+            rdist = rdist/sqrt(rnx**2 + rny**2 + rnz**2)
+
+            ydum(1) = rx2(1) - rdist*rnx
+            ydum(2) = rx2(2) - rdist*rny
+            ydum(3) = 0.0d0
+
+            A(1) = ydum(1)
+            A(2) = ydum(2)
+            A(3) = 0.0d0
+
+            B(1) = rpx1
+            B(2) = rpy1
+            B(3) = 0.0d0
+
+            C(1) = rpx2
+            C(2) = rpy2
+            C(3) = 0.0d0
+
+            AB(1) = B(1) - A(1)
+            AB(2) = B(2) - A(2)
+            AB(3) = 0.0d0
+
+            AC(1) = C(1) - A(1)
+            AC(2) = C(2) - A(2)
+            AC(3) = 0.0d0
+
+            if (ppiclf_ndim .eq. 3) then
+               ydum(3) = rx2(3) - rdist*rnz
+               A(3) = ydum(3)
+               B(3) = rpz1
+               C(3) = rpz2
+               AB(3) = B(3) - A(3)
+               AC(3) = C(3) - A(3)
+
+               AB_DOT_AC = AB(1)*AC(1) + AB(2)*AC(2) + AB(3)*AC(3)
+               AB_MAG = sqrt(AB(1)**2 + AB(2)**2 + AB(3)**2)
+               AC_MAG = sqrt(AC(1)**2 + AC(2)**2 + AC(3)**2)
+               theta  = acos(AB_DOT_AC/(AB_MAG*AC_MAG))
+               tri_area = 0.5d0*AB_MAG*AC_MAG*sin(theta)
+            elseif (ppiclf_ndim .eq. 2) then
+               AB_MAG = sqrt(AB(1)**2 + AB(2)**2)
+               tri_area = AB_MAG
+            endif
+            a_sum = a_sum + tri_area
+         enddo
+
+         rthresh = 1.0d0 ! keep it from slipping through crack on edges
+         if (a_sum .gt. rthresh*area) cycle
          ppiclf_nwall_m = ppiclf_nwall_m + 1
 
-         ppiclf_xyz_mirror(1,ppiclf_nwall_m) = rx2(1) - rdist*rnx
-         ppiclf_xyz_mirror(2,ppiclf_nwall_m) = rx2(2) - rdist*rny
+         ppiclf_xyz_mirror(1,ppiclf_nwall_m) = rx2(1) - 2.0*rdist*rnx
+         ppiclf_xyz_mirror(2,ppiclf_nwall_m) = rx2(2) - 2.0*rdist*rny
          ppiclf_xyz_mirror(3,ppiclf_nwall_m) = 0.0d0
          if (ppiclf_ndim .eq. 3) then
-            ppiclf_xyz_mirror(3,ppiclf_nwall_m) = rx2(3) - rdist*rnz
+            ppiclf_xyz_mirror(3,ppiclf_nwall_m) = rx2(3) - 2.0*rdist*rnx
          endif
 
  1511 continue
