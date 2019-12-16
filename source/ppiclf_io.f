@@ -31,6 +31,8 @@
       external ppiclf_indx1
       character*132 PPICLF_CHSTR
       EXTERNAL PPICLF_CHSTR
+      integer*4 ppiclf_iglsum
+      external ppiclf_iglsum
 !
       call ppiclf_prints(' *Begin ReadParticleVTU$')
       
@@ -181,6 +183,20 @@
       enddo
 
       ppiclf_npart = npart
+
+      if (ppiclf_iglsum(ppiclf_npart,1).gt.0) then
+         call ppiclf_prints('      -Begin CreateBin$')
+            call ppiclf_comm_CreateBin
+         call ppiclf_prints('       End CreateBin$')
+
+         call ppiclf_prints('      -Begin FindParticle$')
+            call ppiclf_comm_FindParticle
+         call ppiclf_prints('       End FindParticle$')
+
+         call ppiclf_prints('      -Begin MoveParticle$')
+            call ppiclf_comm_MoveParticle
+         call ppiclf_prints('       End MoveParticle$')
+      endif
 
       call ppiclf_printsi('  End ReadParticleVTU$',npt_total)
 
