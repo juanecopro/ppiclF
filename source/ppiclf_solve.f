@@ -134,7 +134,7 @@
       integer*4  iendian
 !
       if (imethod .eq. 0 .or. abs(imethod) .ge. 2)then
-        if(imethod .ne. 2)
+        if(imethod .ne. 2 .and. imethod .ne. 3.)
      >   call ppiclf_exittr('Invalid integration method$',0.0d0,imethod)
       endif
       if (ndim .le. 1 .or. ndim .ge. 4)
@@ -1107,6 +1107,8 @@ c----------------------------------------------------------------------
      >   call ppiclf_solve_IntegrateRK3(iout)
       if (ppiclf_imethod .eq. 2) 
      >   call ppiclf_solve_IntegrateRK3f(iout)
+      if (ppiclf_imethod .eq. 3) 
+     >   call ppiclf_solve_IntegrateRK3c(iout)
       if (ppiclf_imethod .eq. -1) 
      >   call ppiclf_solve_IntegrateRK3s(iout)
 
@@ -1170,6 +1172,58 @@ c----------------------------------------------------------------------
      >                     + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
          enddo
       enddo
+
+      iout = .true.
+
+      return
+      end
+c----------------------------------------------------------------------
+      subroutine ppiclf_solve_IntegrateRK3c(iout)
+!
+!     the 'c' stands for subCycle! 
+!
+      implicit none
+!
+      include "PPICLF"
+! 
+! Internal: 
+! 
+      integer*4 i, ndum, nstage, istage, ncycle, icycle
+!
+! Output:
+!
+      logical iout
+!
+      ncycle = 3
+      do icycle=1,ncycle
+      ! save stage 1 solution
+      ndum = PPICLF_NPART*PPICLF_LRS
+      do i=1,ndum
+         ppiclf_y1(i) = ppiclf_y(i,1)
+      enddo
+
+      ! get rk3 coeffs
+      call ppiclf_solve_SetRK3Coeff(ppiclf_dt/ncycle)
+
+      nstage = 3
+      do istage=1,nstage
+
+         ! evaluate ydot using frozen carrier phase
+         call ppiclf_solve_SetYdot_fast
+
+         ! rk3 integrate
+         do i=1,ndum
+c            ndum = PPICLF_NPART*PPICLF_LRS
+            ppiclf_y(i,1) =  ppiclf_rk3coef(1,istage)*ppiclf_y1   (i)
+     >                     + ppiclf_rk3coef(2,istage)*ppiclf_y    (i,1)
+     >                     + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
+         enddo
+      enddo
+      enddo
+
+      ! Project only after cycles are done
+      if (ppiclf_lproj .and. ppiclf_overlap) 
+     >     call ppiclf_solve_ProjectParticleGrid
 
       iout = .true.
 
