@@ -1192,33 +1192,36 @@ c----------------------------------------------------------------------
 !
 ! Output:
 !
-      logical iout
+      real*8 cdt
+      logical iout, lintpts, last
 !
       ncycle = 3
-      do icycle=1,ncycle
-      ! save stage 1 solution
-      ndum = PPICLF_NPART*PPICLF_LRS
-      do i=1,ndum
-         ppiclf_y1(i) = ppiclf_y(i,1)
-      enddo
-
+      cdt = ppiclf_dt/ncycle
       ! get rk3 coeffs
-      call ppiclf_solve_SetRK3Coeff(ppiclf_dt/ncycle)
+      call ppiclf_solve_SetRK3Coeff(cdt)
+      do icycle=1,ncycle
+       ! save stage 1 solution
+       ndum = PPICLF_NPART*PPICLF_LRS
+       do i=1,ndum
+          ppiclf_y1(i) = ppiclf_y(i,1)
+       enddo
 
-      nstage = 3
-      do istage=1,nstage
+       last = (icycle .eq. ncycle)
+       nstage = 3
+       do istage=1,nstage
 
-         ! evaluate ydot using frozen carrier phase
-         call ppiclf_solve_SetYdot_fast
+          lintpts = (istage.eq.1)
+          ! evaluate ydot using frozen carrier phase
+          call ppiclf_solve_SetYdotSC(lintpts, last)
 
-         ! rk3 integrate
-         do i=1,ndum
-c            ndum = PPICLF_NPART*PPICLF_LRS
-            ppiclf_y(i,1) =  ppiclf_rk3coef(1,istage)*ppiclf_y1   (i)
-     >                     + ppiclf_rk3coef(2,istage)*ppiclf_y    (i,1)
-     >                     + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
-         enddo
-      enddo
+          ! rk3 integrate
+          do i=1,ndum
+c             ndum = PPICLF_NPART*PPICLF_LRS
+             ppiclf_y(i,1) =  ppiclf_rk3coef(1,istage)*ppiclf_y1   (i)
+     >                      + ppiclf_rk3coef(2,istage)*ppiclf_y    (i,1)
+     >                      + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
+          enddo
+       enddo
       enddo
 
       ! Project only after cycles are done
@@ -1326,6 +1329,20 @@ c----------------------------------------------------------------------
       return
       end
 c----------------------------------------------------------------------
+      subroutine ppiclf_solve_SetYdotSC(lintpts,last)
+!
+      implicit none
+!
+      include "PPICLF"
+! 
+      logical last,lintpts
+
+      call ppiclf_solve_InitSolveSC(lintpts,last)
+      call ppiclf_user_SetYdot
+
+      return
+      end
+c----------------------------------------------------------------------
       subroutine ppiclf_solve_SetYdot_fast
 !
       implicit none
@@ -1346,6 +1363,48 @@ c----------------------------------------------------------------------
 ! 
       call ppiclf_solve_InitSolve
       call ppiclf_user_SetYdot
+
+      return
+      end
+c----------------------------------------------------------------------
+      subroutine ppiclf_solve_InitSolveSC(lintpts,last)
+!
+      implicit none
+!
+      include "PPICLF"
+! 
+! Internal: 
+! 
+      integer*4 i, j
+      logical last, lintpts
+!
+      call ppiclf_comm_CreateBin
+      call ppiclf_comm_FindParticle
+      call ppiclf_comm_MoveParticle
+      if (ppiclf_overlap) 
+     >   call ppiclf_comm_MapOverlapMesh
+      if (ppiclf_lintp .and. ppiclf_int_icnt .ne. 0 .and. lintpts) 
+     >   call ppiclf_solve_InterpParticleGridSC(last)
+      call ppiclf_solve_RemoveParticle
+
+      if (ppiclf_lsubsubbin .or. ppiclf_lproj) then
+         call ppiclf_comm_CreateGhost
+         call ppiclf_comm_MoveGhost
+      endif
+
+!---- Do not project until RK3 is over
+c      if (ppiclf_lproj .and. ppiclf_overlap) 
+c     >   call ppiclf_solve_ProjectParticleGrid
+
+      if (ppiclf_lsubsubbin) 
+     >   call ppiclf_solve_SetNeighborBin
+
+      ! Zero 
+      do i=1,PPICLF_LPART
+      do j=1,PPICLF_LRS
+         ppiclf_ydotc(j,i) = 0.0d0
+      enddo
+      enddo
 
       return
       end
@@ -1426,6 +1485,28 @@ c----------------------------------------------------------------------
          ppiclf_ydotc(j,i) = 0.0d0
       enddo
       enddo
+
+      return
+      end
+!-----------------------------------------------------------------------
+      subroutine ppiclf_solve_InterpParticleGridSC(last)
+!
+      implicit none
+!
+      include "PPICLF"
+!
+! Internal:
+!
+      integer*4 j
+      logical last
+!
+      call ppiclf_solve_InitInterp
+      do j=1,PPICLF_INT_ICNT
+         call ppiclf_solve_InterpField(j)
+      enddo
+      call ppiclf_solve_FinalizeInterpSC(last)
+
+      call ppiclf_solve_PostInterp
 
       return
       end
@@ -1580,6 +1661,79 @@ c     ndum    = ppiclf_neltb*n
          call ppiclf_copy(ppiclf_int_fld (1,1,1,j  ,ie)
      >                   ,ppiclf_int_fldu(1,1,1,iee,j ),n)
       enddo
+
+      return
+      end
+!-----------------------------------------------------------------------
+      subroutine ppiclf_solve_FinalizeInterpSC(last)
+!
+      implicit none
+!
+      include "PPICLF"
+!
+! Internal: 
+!
+      real*8 FLD(PPICLF_LEX,PPICLF_LEY,PPICLF_LEZ,PPICLF_LEE)
+      integer*4 nkey(2), nl, nii, njj, nxyz, nrr, ix, iy, iz, i, jp, ie
+      logical partl, last
+!
+      ! send it all
+      nl   = 0
+      nii  = PPICLF_LRMAX
+      njj  = 6
+      nxyz = PPICLF_LEX*PPICLF_LEY*PPICLF_LEZ
+      nrr  = nxyz*PPICLF_LRP_INT
+      nkey(1) = 2
+      nkey(2) = 1
+      call pfgslib_crystal_tuple_transfer(ppiclf_cr_hndl,ppiclf_neltbbb
+     >      ,PPICLF_LEE,ppiclf_er_mapc,nii,partl,nl,ppiclf_int_fld
+     >      ,nrr,njj)
+      call pfgslib_crystal_tuple_sort    (ppiclf_cr_hndl,ppiclf_neltbbb
+     >       ,ppiclf_er_mapc,nii,partl,nl,ppiclf_int_fld,nrr,nkey,2)
+
+      ! find which cell particle is in locally
+      ix = 1
+      iy = 2
+      iz = 1
+      if (ppiclf_ndim .eq. 3)
+     >iz = 3
+
+      call pfgslib_findpts(PPICLF_FP_HNDL           !   call pfgslib_findpts( ihndl,
+     >        , ppiclf_iprop (1 ,1),PPICLF_LIP        !   $             rcode,1,
+     >        , ppiclf_iprop (3 ,1),PPICLF_LIP        !   &             proc,1,
+     >        , ppiclf_iprop (2 ,1),PPICLF_LIP        !   &             elid,1,
+     >        , ppiclf_rprop2(1 ,1),PPICLF_LRP2       !   &             rst,ndim,
+     >        , ppiclf_rprop2(4 ,1),PPICLF_LRP2       !   &             dist,1,
+     >        , ppiclf_y     (ix,1),PPICLF_LRS        !   &             pts(    1),1,
+     >        , ppiclf_y     (iy,1),PPICLF_LRS        !   &             pts(  n+1),1,
+     >        , ppiclf_y     (iz,1),PPICLF_LRS ,PPICLF_NPART) !   &             pts(2*n+1),1,n)
+
+      do i=1,PPICLF_INT_ICNT
+         jp = PPICLF_INT_MAP(i)
+
+         do ie=1,ppiclf_neltbbb
+            call ppiclf_copy(fld(1,1,1,ie)
+     >                      ,ppiclf_int_fld(1,1,1,i,ie),nxyz)
+         enddo
+
+         ! interpolate field locally
+         call pfgslib_findpts_eval_local( PPICLF_FP_HNDL
+     >                                  ,ppiclf_rprop (jp,1)
+     >                                  ,PPICLF_LRP
+     >                                  ,ppiclf_iprop (2,1)
+     >                                  ,PPICLF_LIP
+     >                                  ,ppiclf_rprop2(1,1)
+     >                                  ,PPICLF_LRP2
+     >                                  ,PPICLF_NPART
+     >                                  ,fld)
+
+      enddo
+
+      ! free since mapping can change on next call
+      call pfgslib_findpts_free(PPICLF_FP_HNDL)
+
+      ! Set interpolated fields to zero again
+      if(last) PPICLF_INT_ICNT = 0
 
       return
       end
