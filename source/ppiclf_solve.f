@@ -23,7 +23,7 @@
      >   call ppiclf_exittr('Invalid number of particles$',
      >                      0.0,ppiclf_npart+npart)
 
-      call ppiclf_printsi('      -End copy particles$',npart)
+      call ppiclf_printsi('      -Begin copy particles$',npart)
 
       ! First, append arrays onto existing arrays
       call ppiclf_copy(ppiclf_y(1,ppiclf_npart+1),
@@ -34,7 +34,7 @@
      >                 npart*PPICLF_LRP)
       ppiclf_npart = ppiclf_npart + npart
 
-      call ppiclf_printsi('      -Begin copy particles$',ppiclf_npart)
+      call ppiclf_printsi('      -End copy particles$',ppiclf_npart)
 
       if (.not. PPICLF_RESTART) then
          call ppiclf_prints('      -Begin ParticleTag$')

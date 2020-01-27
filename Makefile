@@ -1,7 +1,14 @@
-FC               = mpif77 # Valid MPI Fortran compiler
-CC               = mpicc  # Valid MPI C compiler
-FFLAGS          += -cpp -std=legacy
-CPFLAGS         += -E
+FC               = mpiifort # Valid MPI Fortran compiler
+CC               = mpiicc  # Valid MPI C compiler
+#FFLAGS          += -O2 -g -cpp
+#CPFLAGS         += -O2 -g -E
+#FFLAGS          += -qoffload-option,mic,compiler, "-O3" -O3 -fpe0 -axCORE-AVX2 -xSSE4.2 -cpp
+#CPFLAGS         += -qoffload-option,mic,compiler, "-O3" -O3 -axCORE-AVX2 -xSSE4.2 -E
+#OPTFLAGS        = -xmic-avx512
+#OPTFLAGS        = -xCORE-AVX2
+OPTFLAGS        = -axMIC-AVX512,CORE-AVX2
+FFLAGS          += $(OPTFLAGS) -heap-arrays -cpp
+CPFLAGS         += $(OPTFLAGS) -heap-arrays -E
 #FFLAGS          += -DPPICLC
  	           
 INSTALL_LOCATION = .
@@ -51,7 +58,7 @@ libObjs: $(SOURCE_ROOT_PPICLF)/ppiclf.o
 	@echo "                       "
 
 getObjs: $(SOURCE_ROOT_PPICLF)/ppiclf.f
-	$(FC) $(FFLAGS) -c $(SOURCE_ROOT_PPICLF)/ppiclf.f $(GSLIB_IFLAGS) 
+	$(FC) -O2 $(FFLAGS) -c $(SOURCE_ROOT_PPICLF)/ppiclf.f $(GSLIB_IFLAGS) 
 	mv *.o $(SOURCE_ROOT_PPICLF)
 	@echo "                              "
 	@echo "******************************"
@@ -75,7 +82,7 @@ preProcess: $(PRE)
 
 makeThird: $(SOURCE_ROOT_GSLIB)/install
 	cd $(SOURCE_ROOT_GSLIB); \
-	./install $(CC) $(FC)
+	CFLAGS="$(OPTFLAGS)" ./install $(CC) $(FC)
 	@echo "                       "
 	@echo "***********************"
 	@echo "*** INSTALLED GSLIB ***"
