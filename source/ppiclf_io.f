@@ -349,17 +349,17 @@
       nnp   = ppiclf_np
       nxx   = PPICLF_NPART
 
-      ncll_total = ppiclf_ndxgp*(ppiclf_bx-1)
-     >            *ppiclf_ndygp*(ppiclf_by-1)
+      ncll_total = ppiclf_n_bins(1)*(ppiclf_bx-1)
+     >            *ppiclf_n_bins(2)*(ppiclf_by-1)
       if (ppiclf_ndim.eq.3) ncll_total = ncll_total
-     >            *ppiclf_ndzgp*(ppiclf_bz-1)
-      nvtx_total = (ppiclf_ndxgp*(ppiclf_bx-1)+1)
-     >            *(ppiclf_ndygp*(ppiclf_by-1)+1)
+     >            *ppiclf_n_bins(3)*(ppiclf_bz-1)
+      nvtx_total = (ppiclf_n_bins(1)*(ppiclf_bx-1)+1)
+     >            *(ppiclf_n_bins(2)*(ppiclf_by-1)+1)
       if (ppiclf_ndim.eq.3) nvtx_total = nvtx_total
-     >            *(ppiclf_ndzgp*(ppiclf_bz-1)+1)
+     >            *(ppiclf_n_bins(3)*(ppiclf_bz-1)+1)
 
-      ndxgpp1 = ppiclf_ndxgp + 1
-      ndygpp1 = ppiclf_ndygp + 1
+      ndxgpp1 = ppiclf_n_bins(1) + 1
+      ndygpp1 = ppiclf_n_bins(2) + 1
       ndxygpp1 = ndxgpp1*ndygpp1
 
       if_sz = len(filein1)
@@ -372,11 +372,11 @@
       isize  = 4
 
       ! get which bin this processor holds
-      ibin = modulo(ppiclf_nid,ppiclf_ndxgp)
-      jbin = modulo(ppiclf_nid/ppiclf_ndxgp,ppiclf_ndygp)
+      ibin = modulo(ppiclf_nid,ppiclf_n_bins(1))
+      jbin = modulo(ppiclf_nid/ppiclf_n_bins(1),ppiclf_n_bins(2))
       kbin = 0
       if (ppiclf_ndim .eq. 3)
-     >kbin = ppiclf_nid/(ppiclf_ndxgp*ppiclf_ndygp)
+     >kbin = ppiclf_nid/(ppiclf_n_bins(1)*ppiclf_n_bins(2))
 
 ! ----------------------------------------------------
 ! WRITE EACH INDIVIDUAL COMPONENT OF A BINARY VTU FILE
@@ -465,13 +465,13 @@ c     iint = iint + 1*isize*nvtx_total + isize
       write(vtu,'(A)',advance='no') 'Name="connectivity" '
       write(vtu,'(A)',advance='yes') 'format="ascii"> '
       ! write connectivity here
-      ndumx = ppiclf_ndxgp*(ppiclf_bx-1) + 1
-      ndumy = ppiclf_ndygp*(ppiclf_by-1) + 1
-      ndum = ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp
+      ndumx = ppiclf_n_bins(1)*(ppiclf_bx-1) + 1
+      ndumy = ppiclf_n_bins(2)*(ppiclf_by-1) + 1
+      ndum = ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)
       do ie=0,ndum-1
-         i = modulo(ie,ppiclf_ndxgp)
-         j = modulo(ie/ppiclf_ndxgp,ppiclf_ndygp)
-         k = ie/(ppiclf_ndxgp*ppiclf_ndygp)
+         i = modulo(ie,ppiclf_n_bins(1))
+         j = modulo(ie/ppiclf_n_bins(1),ppiclf_n_bins(2))
+         k = ie/(ppiclf_n_bins(1)*ppiclf_n_bins(2))
 
       kmax = 1
       if (ppiclf_ndim .eq. 3) kmax = ppiclf_bz-1
@@ -600,7 +600,8 @@ c1511 continue
       enddo
       enddo
       enddo
-      if (ppiclf_nid .le. ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
+      if (ppiclf_nid .le. 
+     >      ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
          if (ppiclf_ndim .eq. 3) then
          do k=1,ppiclf_bz
          do j=1,ppiclf_by
@@ -614,7 +615,7 @@ c1511 continue
             if (i .eq. ppiclf_bx) then
             if (j .ne. ppiclf_by) then
             if (k .ne. ppiclf_bz) then
-            if (ibin .eq. ppiclf_ndxgp-1) then
+            if (ibin .eq. ppiclf_n_bins(1)-1) then
                icount_pos(i,j,k) = 3
             endif
             endif
@@ -624,7 +625,7 @@ c1511 continue
             if (j .eq. ppiclf_by) then
             if (i .ne. ppiclf_bx) then
             if (k .ne. ppiclf_bz) then
-            if (jbin .eq. ppiclf_ndygp-1) then
+            if (jbin .eq. ppiclf_n_bins(2)-1) then
                icount_pos(i,j,k) = 3
             endif
             endif
@@ -634,7 +635,7 @@ c1511 continue
             if (k .eq. ppiclf_bz) then
             if (i .ne. ppiclf_bx) then
             if (j .ne. ppiclf_by) then
-            if (kbin .eq. ppiclf_ndzgp-1) then
+            if (kbin .eq. ppiclf_n_bins(3)-1) then
                icount_pos(i,j,k) = 3
             endif
             endif
@@ -644,8 +645,8 @@ c1511 continue
             if (i .eq. ppiclf_bx) then
             if (j .eq. ppiclf_by) then
             if (k .ne. ppiclf_bz) then
-            if (ibin .eq. ppiclf_ndxgp-1) then
-            if (jbin .eq. ppiclf_ndygp-1) then
+            if (ibin .eq. ppiclf_n_bins(1)-1) then
+            if (jbin .eq. ppiclf_n_bins(2)-1) then
                icount_pos(i,j,k) = 3
             endif
             endif
@@ -656,8 +657,8 @@ c1511 continue
             if (i .eq. ppiclf_bx) then
             if (k .eq. ppiclf_bz) then
             if (j .ne. ppiclf_by) then
-            if (ibin .eq. ppiclf_ndxgp-1) then
-            if (kbin .eq. ppiclf_ndzgp-1) then
+            if (ibin .eq. ppiclf_n_bins(1)-1) then
+            if (kbin .eq. ppiclf_n_bins(3)-1) then
                icount_pos(i,j,k) = 3
             endif
             endif
@@ -668,8 +669,8 @@ c1511 continue
             if (j .eq. ppiclf_by) then
             if (k .eq. ppiclf_bz) then
             if (i .ne. ppiclf_bx) then
-            if (jbin .eq. ppiclf_ndygp-1) then
-            if (kbin .eq. ppiclf_ndzgp-1) then
+            if (jbin .eq. ppiclf_n_bins(2)-1) then
+            if (kbin .eq. ppiclf_n_bins(3)-1) then
                icount_pos(i,j,k) = 3
             endif
             endif
@@ -680,9 +681,9 @@ c1511 continue
             if (i .eq. ppiclf_bx) then
             if (j .eq. ppiclf_by) then
             if (k .eq. ppiclf_bz) then
-            if (ibin .eq. ppiclf_ndxgp-1) then
-            if (jbin .eq. ppiclf_ndygp-1) then
-            if (kbin .eq. ppiclf_ndzgp-1) then
+            if (ibin .eq. ppiclf_n_bins(1)-1) then
+            if (jbin .eq. ppiclf_n_bins(2)-1) then
+            if (kbin .eq. ppiclf_n_bins(3)-1) then
                icount_pos(i,j,k) = 3
             endif
             endif
@@ -705,7 +706,7 @@ c1511 continue
 
             if (i .eq. ppiclf_bx) then
             if (j .ne. ppiclf_by) then
-            if (ibin .eq. ppiclf_ndxgp-1) then
+            if (ibin .eq. ppiclf_n_bins(1)-1) then
                icount_pos(i,j,1) = 3
             endif
             endif
@@ -713,7 +714,7 @@ c1511 continue
 
             if (j .eq. ppiclf_by) then
             if (i .ne. ppiclf_bx) then
-            if (jbin .eq. ppiclf_ndygp-1) then
+            if (jbin .eq. ppiclf_n_bins(2)-1) then
                icount_pos(i,j,1) = 3
             endif
             endif
@@ -721,8 +722,8 @@ c1511 continue
 
             if (i .eq. ppiclf_bx) then
             if (j .eq. ppiclf_by) then
-            if (ibin .eq. ppiclf_ndxgp-1) then
-            if (jbin .eq. ppiclf_ndygp-1) then
+            if (ibin .eq. ppiclf_n_bins(1)-1) then
+            if (jbin .eq. ppiclf_n_bins(2)-1) then
                icount_pos(i,j,1) = 3
             endif
             endif
@@ -846,14 +847,14 @@ c1511 continue
       nnp   = ppiclf_np
       nxx   = PPICLF_NPART
 
-      nvtx_total = (ppiclf_ndxgp+1)*(ppiclf_ndygp+1)
+      nvtx_total = (ppiclf_n_bins(1)+1)*(ppiclf_n_bins(2)+1)
       if (ppiclf_ndim .gt. 2) 
-     >    nvtx_total = nvtx_total*(ppiclf_ndzgp+1)
-      ncll_total = ppiclf_ndxgp*ppiclf_ndygp
-      if (ppiclf_ndim .gt. 2) ncll_total = ncll_total*ppiclf_ndzgp
+     >    nvtx_total = nvtx_total*(ppiclf_n_bins(3)+1)
+      ncll_total = ppiclf_n_bins(1)*ppiclf_n_bins(2)
+      if (ppiclf_ndim .gt. 2) ncll_total = ncll_total*ppiclf_n_bins(3)
 
-      ndxgpp1 = ppiclf_ndxgp + 1
-      ndygpp1 = ppiclf_ndygp + 1
+      ndxgpp1 = ppiclf_n_bins(1) + 1
+      ndygpp1 = ppiclf_n_bins(2) + 1
       ndxygpp1 = ndxgpp1*ndygpp1
 
       if_sz = len(filein1)
@@ -866,11 +867,11 @@ c1511 continue
       isize  = 4
 
       ! get which bin this processor holds
-      ibin = modulo(ppiclf_nid,ppiclf_ndxgp)
-      jbin = modulo(ppiclf_nid/ppiclf_ndxgp,ppiclf_ndygp)
+      ibin = modulo(ppiclf_nid,ppiclf_n_bins(1))
+      jbin = modulo(ppiclf_nid/ppiclf_n_bins(1),ppiclf_n_bins(2))
       kbin = 0
       if (ppiclf_ndim .eq. 3)
-     >kbin = ppiclf_nid/(ppiclf_ndxgp*ppiclf_ndygp)
+     >kbin = ppiclf_nid/(ppiclf_n_bins(1)*ppiclf_n_bins(2))
 
       il = ibin
       ir = ibin+1
@@ -904,7 +905,8 @@ c1511 continue
       stride_lenv(8) = 0
  
       stride_lenc = 0
-      if (ppiclf_nid .le. ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
+      if (ppiclf_nid .le. 
+     >      ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
          stride_lenv(1) = nbinpa
          stride_lenv(2) = nbinpb
          stride_lenv(3) = nbinpc
@@ -1000,23 +1002,23 @@ c     goto 1511
       write(vtu,'(A)',advance='yes') 'format="ascii"> '
       ! write connectivity here
       do ii=0,ncll_total-1
-         i = modulo(ii,ppiclf_ndxgp)
-         j = modulo(ii/ppiclf_ndxgp,ppiclf_ndygp)
+         i = modulo(ii,ppiclf_n_bins(1))
+         j = modulo(ii/ppiclf_n_bins(1),ppiclf_n_bins(2))
          k = 0
          if (ppiclf_ndim .eq. 3)
-     >   k = ii/(ppiclf_ndxgp*ppiclf_ndygp)
+     >   k = ii/(ppiclf_n_bins(1)*ppiclf_n_bins(2))
           
-c     do K=0,ppiclf_ndzgp-1
+c     do K=0,ppiclf_n_bins(3)-1
          kl = K
          kr = K
          if (ppiclf_ndim .eq. 3) then
             kl = K
             kr = K+1
          endif
-c     do J=0,ppiclf_ndygp-1
+c     do J=0,ppiclf_n_bins(2)-1
          jl = J
          jr = J+1
-c     do I=0,ppiclf_ndxgp-1
+c     do I=0,ppiclf_n_bins(1)-1
          il = I
          ir = I+1
 
@@ -1120,7 +1122,7 @@ c1511 continue
       ! point A
       icount_pos = 0
       if (ppiclf_nid .le. 
-     >    ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
+     >    ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
          icount_pos = 3
       endif
       idisp_pos  = ivtu_size + isize*(3*stride_lenv(1) + 1)
@@ -1139,8 +1141,8 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3   *stride_lenv(2) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (ibin .eq. ppiclf_ndxgp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (ibin .eq. ppiclf_n_bins(1)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(2,1))
             rpoint(2)  = sngl(ppiclf_biny(1,1))
@@ -1154,8 +1156,8 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3   *stride_lenv(3) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (jbin .eq. ppiclf_ndygp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (jbin .eq. ppiclf_n_bins(2)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(1,1))
             rpoint(2)  = sngl(ppiclf_biny(2,1))
@@ -1169,8 +1171,8 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3   *stride_lenv(5) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (kbin .eq. ppiclf_ndzgp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (kbin .eq. ppiclf_n_bins(3)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(1,1))
             rpoint(2)  = sngl(ppiclf_biny(1,1))
@@ -1184,9 +1186,9 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3   *stride_lenv(4) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (ibin .eq. ppiclf_ndxgp-1) then
-         if (jbin .eq. ppiclf_ndygp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (ibin .eq. ppiclf_n_bins(1)-1) then
+         if (jbin .eq. ppiclf_n_bins(2)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(2,1))
             rpoint(2)  = sngl(ppiclf_biny(2,1))
@@ -1201,9 +1203,9 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3   *stride_lenv(6) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (ibin .eq. ppiclf_ndxgp-1) then
-         if (kbin .eq. ppiclf_ndzgp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (ibin .eq. ppiclf_n_bins(1)-1) then
+         if (kbin .eq. ppiclf_n_bins(3)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(2,1))
             rpoint(2)  = sngl(ppiclf_biny(1,1))
@@ -1218,9 +1220,9 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3   *stride_lenv(7) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (jbin .eq. ppiclf_ndygp-1) then
-         if (kbin .eq. ppiclf_ndzgp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (jbin .eq. ppiclf_n_bins(2)-1) then
+         if (kbin .eq. ppiclf_n_bins(3)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(1,1))
             rpoint(2)  = sngl(ppiclf_biny(2,1))
@@ -1235,10 +1237,10 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3   *stride_lenv(8) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (ibin .eq. ppiclf_ndxgp-1) then
-         if (jbin .eq. ppiclf_ndygp-1) then
-         if (kbin .eq. ppiclf_ndzgp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (ibin .eq. ppiclf_n_bins(1)-1) then
+         if (jbin .eq. ppiclf_n_bins(2)-1) then
+         if (kbin .eq. ppiclf_n_bins(3)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(2,1))
             rpoint(2)  = sngl(ppiclf_biny(2,1))
@@ -1258,8 +1260,8 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3*stride_lenv(2) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (ibin .eq. ppiclf_ndxgp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (ibin .eq. ppiclf_n_bins(1)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(2,1))
             rpoint(2)  = sngl(ppiclf_biny(1,1))
@@ -1273,8 +1275,8 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3*stride_lenv(3) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (jbin .eq. ppiclf_ndygp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (jbin .eq. ppiclf_n_bins(2)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(1,1))
             rpoint(2)  = sngl(ppiclf_biny(2,1))
@@ -1288,9 +1290,9 @@ c1511 continue
          icount_pos = 0
          idisp_pos  = ivtu_size + isize*(3*stride_lenv(4) + 1)
          if (ppiclf_nid .le. 
-     >       ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
-         if (ibin .eq. ppiclf_ndxgp-1) then
-         if (jbin .eq. ppiclf_ndygp-1) then
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
+         if (ibin .eq. ppiclf_n_bins(1)-1) then
+         if (jbin .eq. ppiclf_n_bins(2)-1) then
             icount_pos = 3
             rpoint(1)  = sngl(ppiclf_binx(2,1))
             rpoint(2)  = sngl(ppiclf_biny(2,1))
@@ -1327,7 +1329,8 @@ c1511 continue
       idisp_cll = ivtu_size + isize*(3*(nvtx_total) 
      >     + 1*stride_lenc + 2)
       icount_cll = 0
-      if (ppiclf_nid .le. ppiclf_ndxgp*ppiclf_ndygp*ppiclf_ndzgp-1) then
+      if (ppiclf_nid .le. 
+     >       ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)-1) then
          icount_cll = 1
       endif
       rpoint(1)  = real(nxx)
@@ -1778,7 +1781,7 @@ c1511 continue
          npart_tot = ppiclf_iglsum(ppiclf_npart,1)
          npart_ide = npart_tot/ppiclf_np
 
-         nbin_total = PPICLF_NDXGP*PPICLF_NDYGP*PPICLF_NDZGP
+         nbin_total = ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)
 
       call ppiclf_printsi('  -Cycle                  :$',ppiclf_cycle)
       call ppiclf_printsi('  -Output Freq.           :$',ppiclf_iostep)
@@ -1792,10 +1795,13 @@ c1511 continue
       call ppiclf_printsi('  -Problem dimensions     :$',ppiclf_ndim)
       call ppiclf_printsi('  -Integration method     :$',ppiclf_imethod)
       call ppiclf_printsi('  -Number of bins total   :$',nbin_total)
-      call ppiclf_printsi('  -Number of bins (x)     :$',PPICLF_NDXGP)
-      call ppiclf_printsi('  -Number of bins (y)     :$',PPICLF_NDYGP)
+      call ppiclf_printsi('  -Number of bins (x)     :$',
+     >                    ppiclf_n_bins(1))
+      call ppiclf_printsi('  -Number of bins (y)     :$'
+     >                    ,ppiclf_n_bins(2))
       if (ppiclf_ndim .gt. 2)
-     >call ppiclf_printsi('  -Number of bins (z)     :$',PPICLF_NDZGP)
+     >call ppiclf_printsi('  -Number of bins (z)     :$'
+     >                    ,ppiclf_n_bins(3))
       call ppiclf_printsr('  -Bin xl coordinate      :$',ppiclf_binb(1))
       call ppiclf_printsr('  -Bin xr coordinate      :$',ppiclf_binb(2))
       call ppiclf_printsr('  -Bin yl coordinate      :$',ppiclf_binb(3))

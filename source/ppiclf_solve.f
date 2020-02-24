@@ -1,5 +1,10 @@
 !-----------------------------------------------------------------------
+#ifdef PPICLC
       subroutine ppiclf_solve_AddParticles(npart,y,rprop)
+     > bind(C, name="ppiclc_solve_AddParticles")
+#else
+      subroutine ppiclf_solve_AddParticles(npart,y,rprop)
+#endif
 !
       implicit none
 !
@@ -180,9 +185,17 @@
       ppiclf_d2chk(2) = 0.0d0
       ppiclf_d2chk(3) = 0.0d0
 
-      ppiclf_nbin_dir(1) = 0
-      ppiclf_nbin_dir(2) = 0
-      ppiclf_nbin_dir(3) = 0
+      ppiclf_n_bins(1) = 1
+      ppiclf_n_bins(2) = 1
+      ppiclf_n_bins(3) = 1
+
+      ppiclf_bins_set(1) = 0
+      ppiclf_bins_set(2) = 0
+      ppiclf_bins_set(3) = 0
+
+      ppiclf_bins_balance(1) = 0
+      ppiclf_bins_balance(2) = 0
+      ppiclf_bins_balance(3) = 0
 
       ppiclf_nwall    = 0
       ppiclf_iwallm   = 0
@@ -222,10 +235,10 @@
       end
 !-----------------------------------------------------------------------
 #ifdef PPICLC
-      subroutine ppiclf_solve_InitSuggestedDir(str)
-     > bind(C, name="ppiclc_solve_InitSuggestedDir")
+      subroutine ppiclf_solve_InitTargetBins(str,n,balance)
+     > bind(C, name="ppiclc_solve_InitTargetBins")
 #else
-      subroutine ppiclf_solve_InitSuggestedDir(str)
+      subroutine ppiclf_solve_InitTargetBins(str,n,balance)
 #endif
 !
       implicit none
@@ -235,23 +248,31 @@
 ! Input:
 !
       character*1 str
+      integer*4 n
+      integer*4 balance
 !
       if (.not.PPICLF_LCOMM)
-     >call ppiclf_exittr('InitMPI must be before InitSuggestedDir$'
+     >call ppiclf_exittr('InitMPI must be before InitTargetBins$'
      >                   ,0.0d0,0)
       if (.not.PPICLF_LINIT)
-     >call ppiclf_exittr('InitParticle must be before InitSuggestedDir$'
+     >call ppiclf_exittr('InitParticle must be before InitTargetBins$'
      >                  ,0.0d0,0)
 
       if (str == 'x' .or. str == 'X') then 
-         ppiclf_nbin_dir(1) = 1
+         ppiclf_n_bins(1) = n
+         if (n .gt. 1) ppiclf_bins_set(1) = 1
+         ppiclf_bins_balance(1) = balance
       elseif (str == 'y' .or. str == 'Y') then 
-        ppiclf_nbin_dir(2) = 1
+         ppiclf_n_bins(2) = n
+         if (n .gt. 1) ppiclf_bins_set(2) = 1
+         ppiclf_bins_balance(2) = balance
       elseif (str == 'z' .or. str == 'Z') then 
         if (ppiclf_ndim .lt. 3)
-     >  call ppiclf_exittr('Dim must be 3 to use InitSuggestedDir on z$'
+     >   call ppiclf_exittr('Dim must be 3 to use InitTargetBins on z$'
      >                   ,0.,ppiclf_ndim)
-        ppiclf_nbin_dir(3) = 1
+         ppiclf_n_bins(3) = n
+         if (n .gt. 1) ppiclf_bins_set(3) = 1
+         ppiclf_bins_balance(3) = balance
       endif
 
       return
@@ -895,6 +916,8 @@
       ppiclf_xdrange(1,1) = xl
       ppiclf_xdrange(2,1) = xr
 
+      call ppiclf_solve_InitSolve
+
       return
       end
 !-----------------------------------------------------------------------
@@ -921,6 +944,8 @@
 
       ppiclf_xdrange(1,2) = yl
       ppiclf_xdrange(2,2) = yr
+
+      call ppiclf_solve_InitSolve
 
       return
       end
@@ -950,6 +975,8 @@
 
       ppiclf_xdrange(1,3) = zl
       ppiclf_xdrange(2,3) = zr
+
+      call ppiclf_solve_InitSolve
 
       return
       end
@@ -1300,11 +1327,6 @@ c----------------------------------------------------------------------
 !
       icalld = icalld + 1
 
-      ! save stage 1 solution
-      ndum = PPICLF_NPART*PPICLF_LRS
-      do i=1,ndum
-         ppiclf_y1(i) = ppiclf_y(i,1)
-      enddo
 
       ! get rk3 coeffs
       call ppiclf_solve_SetRK3Coeff(ppiclf_dt)
@@ -1314,6 +1336,14 @@ c----------------------------------------------------------------------
       if (istage .eq. 0) istage = 3
       iout = .false.
       if (istage .eq. nstage) iout = .true.
+
+      ! save stage 1 solution
+      if (istage .eq. 1) then
+      ndum = PPICLF_NPART*PPICLF_LRS
+      do i=1,ndum
+         ppiclf_y1(i) = ppiclf_y(i,1)
+      enddo
+      endif
 
       ! evaluate ydot
       call ppiclf_solve_SetYdot
@@ -1363,6 +1393,7 @@ c----------------------------------------------------------------------
 ! 
       call ppiclf_solve_InitSolve
       call ppiclf_user_SetYdot
+      call ppiclf_solve_RemoveParticle
 
       return
       end
@@ -1966,6 +1997,21 @@ c----------------------------------------------------------------------
       return
       end
 !-----------------------------------------------------------------------
+      subroutine ppiclf_solve_MarkForRemoval(i)
+!
+      implicit none
+!
+      include "PPICLF"
+!
+! Input:
+!
+      integer*4 i
+!
+      ppiclf_iprop(1,i) = 3
+
+      return
+      end
+!-----------------------------------------------------------------------
       subroutine ppiclf_solve_RemoveParticle
 !
       implicit none
@@ -1990,6 +2036,10 @@ c----------------------------------------------------------------------
       do i=1,ppiclf_npart
          isl = (i -1) * PPICLF_LRS + 1
          in_part(i) = 0
+         if (ppiclf_iprop(1,i) .eq. 3) then
+            in_part(i) = -1 ! User removed particle
+            goto 1513
+         endif
          do j=0,ndim-1
             jchk = jj(j+1)
             if (ppiclf_y(jchk,i).lt.ppiclf_xdrange(1,j+1))then
@@ -2019,6 +2069,7 @@ c----------------------------------------------------------------------
             endif
  1512 continue
          enddo
+ 1513 continue
       enddo
 
       ic = 0
