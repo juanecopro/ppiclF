@@ -139,7 +139,7 @@
       integer*4  iendian
 !
       if (imethod .eq. 0 .or. abs(imethod) .ge. 2)then
-        if(imethod .ne. 2 .and. imethod .ne. 3.)
+        if(imethod .gt. 10) ! max num cubcycles set to 10
      >   call ppiclf_exittr('Invalid integration method$',0.0d0,imethod)
       endif
       if (ndim .le. 1 .or. ndim .ge. 4)
@@ -1134,8 +1134,8 @@ c----------------------------------------------------------------------
      >   call ppiclf_solve_IntegrateRK3(iout)
       if (ppiclf_imethod .eq. 2) 
      >   call ppiclf_solve_IntegrateRK3f(iout)
-      if (ppiclf_imethod .eq. 3) 
-     >   call ppiclf_solve_IntegrateRK3c(iout)
+      if (ppiclf_imethod .ge. 3) 
+     >   call ppiclf_solve_IntegrateRK3c(iout,ppiclf_imethod)
       if (ppiclf_imethod .eq. -1) 
      >   call ppiclf_solve_IntegrateRK3s(iout)
 
@@ -1205,7 +1205,7 @@ c----------------------------------------------------------------------
       return
       end
 c----------------------------------------------------------------------
-      subroutine ppiclf_solve_IntegrateRK3c(iout)
+      subroutine ppiclf_solve_IntegrateRK3c(iout,ncycle)
 !
 !     the 'c' stands for subCycle! 
 !
@@ -1222,7 +1222,6 @@ c----------------------------------------------------------------------
       real*8 cdt
       logical iout, lintpts, last
 !
-      ncycle = 3
       cdt = ppiclf_dt/ncycle
       ! get rk3 coeffs
       call ppiclf_solve_SetRK3Coeff(cdt)
