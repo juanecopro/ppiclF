@@ -12,7 +12,7 @@
 !
 ! Input: 
 !
-      integer*4  npart
+      integer*4  npart, icalld
       real*8     y(*)
       real*8     rprop(*)
 !
@@ -20,15 +20,18 @@
 !
       integer*4 ppiclf_iglsum,ntotal
       external ppiclf_iglsum
+      save icalld
+      data icalld /0/
 !
 
-      call ppiclf_prints('   *Begin AddParticles$')
+      if(icalld.eq.0) call ppiclf_prints('   *Begin AddParticles$')
 
       if (ppiclf_npart+npart .gt. PPICLF_LPART .or. npart .lt. 0)
      >   call ppiclf_exittr('Invalid number of particles$',
      >                      0.0,ppiclf_npart+npart)
 
-      call ppiclf_printsi('      -Begin copy particles$',npart)
+      if(icalld.eq.0) call ppiclf_printsi
+     >                ('     -Begin copy particles$',npart)
 
       ! First, append arrays onto existing arrays
       call ppiclf_copy(ppiclf_y(1,ppiclf_npart+1),
@@ -39,30 +42,32 @@
      >                 npart*PPICLF_LRP)
       ppiclf_npart = ppiclf_npart + npart
 
-      call ppiclf_printsi('      -End copy particles$',ppiclf_npart)
+      if(icalld.eq.0) call ppiclf_printsi('     -End copy particles$'
+     >                                    ,ppiclf_npart)
 
       if (.not. PPICLF_RESTART) then
-         call ppiclf_prints('      -Begin ParticleTag$')
+         if(icalld.eq.0) call ppiclf_prints('     -Begin ParticleTag$')
             call ppiclf_solve_SetParticleTag(npart)
-         call ppiclf_prints('       End ParticleTag$')
+         if(icalld.eq.0) call ppiclf_prints('      End ParticleTag$')
       endif
 
       if (ppiclf_iglsum(ppiclf_npart,1).gt.0) then
-         call ppiclf_prints('      -Begin CreateBin$')
+         if(icalld.eq.0) call ppiclf_prints('     -Begin CreateBin$')
             call ppiclf_comm_CreateBin
-         call ppiclf_prints('       End CreateBin$')
+         if(icalld.eq.0) call ppiclf_prints('      End CreateBin$')
 
-         call ppiclf_prints('      -Begin FindParticle$')
+         if(icalld.eq.0) call ppiclf_prints('     -Begin FindParticle$')
             call ppiclf_comm_FindParticle
-         call ppiclf_prints('       End FindParticle$')
+         if(icalld.eq.0) call ppiclf_prints('      End FindParticle$')
 
-         call ppiclf_prints('      -Begin MoveParticle$')
+         if(icalld.eq.0) call ppiclf_prints('     -Begin MoveParticle$')
             call ppiclf_comm_MoveParticle
-         call ppiclf_prints('       End MoveParticle$')
+         if(icalld.eq.0) call ppiclf_prints('      End MoveParticle$')
 
       endif
 
-      call ppiclf_prints('    End AddParticles$')
+      if(icalld.eq.0) call ppiclf_prints('    End AddParticles$')
+      if(icalld.eq.0) icalld = 1
 
       end
 !-----------------------------------------------------------------------
@@ -1130,6 +1135,8 @@ c----------------------------------------------------------------------
       ppiclf_time   = time
 
       ! integerate in time
+      call ppiclf_printsi(" -Integrating particles, imethod",
+     >                     ppiclf_imethod)
       if (ppiclf_imethod .eq. 1) 
      >   call ppiclf_solve_IntegrateRK3(iout)
       if (ppiclf_imethod .eq. 2) 
@@ -1226,6 +1233,12 @@ c----------------------------------------------------------------------
       ! get rk3 coeffs
       call ppiclf_solve_SetRK3Coeff(cdt)
       do icycle=1,ncycle
+
+#ifdef BREAKUP
+       !calculate breakup based on previous solution
+       call ppiclf_user_breakup
+#endif
+
        ! save stage 1 solution
        ndum = PPICLF_NPART*PPICLF_LRS
        do i=1,ndum
