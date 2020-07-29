@@ -1135,8 +1135,8 @@ c----------------------------------------------------------------------
       ppiclf_time   = time
 
       ! integerate in time
-      call ppiclf_printsi(" -Integrating particles, imethod",
-     >                     ppiclf_imethod)
+      call ppiclf_prints(' -Integrating particles$')
+
       if (ppiclf_imethod .eq. 1) 
      >   call ppiclf_solve_IntegrateRK3(iout)
       if (ppiclf_imethod .eq. 2) 
