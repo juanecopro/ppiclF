@@ -1183,6 +1183,11 @@ c----------------------------------------------------------------------
 !
       logical iout
 !
+#ifdef BREAKUP
+       !calculate breakup based on previous solution
+       call ppiclf_user_breakup
+#endif
+
       ! save stage 1 solution
       ndum = PPICLF_NPART*PPICLF_LRS
       do i=1,ndum
@@ -1288,6 +1293,11 @@ c----------------------------------------------------------------------
 !
       logical iout
 !
+#ifdef BREAKUP
+       !calculate breakup based on previous solution
+       call ppiclf_user_breakup
+#endif
+
       ! save stage 1 solution
       ndum = PPICLF_NPART*PPICLF_LRS
       do i=1,ndum
