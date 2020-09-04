@@ -12,13 +12,14 @@
 !
 ! Input: 
 !
-      integer*4  npart, icalld
+      integer*4  npart
+      integer*4  icalld
       real*8     y(*)
       real*8     rprop(*)
 !
 ! Internal:
 !
-      integer*4 ppiclf_iglsum,ntotal
+      integer*4 ppiclf_iglsum
       external ppiclf_iglsum
       save icalld
       data icalld /0/
@@ -255,6 +256,8 @@
       character*1 str
       integer*4 n
       integer*4 balance
+      integer*4 ppiclf_n_bins_tgt(3)
+      common /tgtbins/ ppiclf_n_bins_tgt
 !
       if (.not.PPICLF_LCOMM)
      >call ppiclf_exittr('InitMPI must be before InitTargetBins$'
@@ -264,18 +267,18 @@
      >                  ,0.0d0,0)
 
       if (str == 'x' .or. str == 'X') then 
-         ppiclf_n_bins(1) = n
+         ppiclf_n_bins_tgt(1) = n
          if (n .ge. 1) ppiclf_bins_set(1) = 1
          ppiclf_bins_balance(1) = balance
       elseif (str == 'y' .or. str == 'Y') then 
-         ppiclf_n_bins(2) = n
+         ppiclf_n_bins_tgt(2) = n
          if (n .ge. 1) ppiclf_bins_set(2) = 1
          ppiclf_bins_balance(2) = balance
       elseif (str == 'z' .or. str == 'Z') then 
         if (ppiclf_ndim .lt. 3)
      >   call ppiclf_exittr('Dim must be 3 to use InitTargetBins on z$'
      >                   ,0.,ppiclf_ndim)
-         ppiclf_n_bins(3) = n
+         ppiclf_n_bins_tgt(3) = n
          if (n .ge. 1) ppiclf_bins_set(3) = 1
          ppiclf_bins_balance(3) = balance
       endif

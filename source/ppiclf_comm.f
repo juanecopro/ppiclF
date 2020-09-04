@@ -54,6 +54,8 @@
       integer*4  el_face_num(18),el_edge_num(36),el_corner_num(24),
      >                            nfacegp, nedgegp, ncornergp
       integer*4 exit_1_array(3), exit_2_array(3), finished(3)
+      integer*4 ppiclf_n_bins_tgt(3)
+      common /tgtbins/ ppiclf_n_bins_tgt
       integer*4 ix, iy, iz, iperiodicx, iperiodicy, iperiodicz, 
      >          npt_total, j, i, idum, jdum, kdum, total_bin, 
      >          sum_value, count
@@ -191,7 +193,11 @@ c     if (npt_total .eq. 1) then
          finished(i) = 0
          exit_1_array(i) = ppiclf_bins_set(i)
          exit_2_array(i) = 0
-         if (ppiclf_bins_set(i) .ne. 1) ppiclf_n_bins(i) = 1
+         if (ppiclf_bins_set(i) .ne. 1) then
+            ppiclf_n_bins(i) = 1
+         else
+            ppiclf_n_bins(i) = ppiclf_n_bins_tgt(i)
+         endif
          ppiclf_bins_dx(i) = (ppiclf_binb(2*(i-1)+2) -
      >                        ppiclf_binb(2*(i-1)+1)  ) / 
      >                       ppiclf_n_bins(i)
