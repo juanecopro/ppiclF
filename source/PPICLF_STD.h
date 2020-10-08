@@ -80,3 +80,6 @@
 #define PPICLF_LWALL 20
 #endif
 
+#ifndef PPICLF_USER
+#define PPICLF_USER 0
+#endif

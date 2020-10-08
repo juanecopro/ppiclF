@@ -1186,9 +1186,8 @@ c----------------------------------------------------------------------
 !
       logical iout
 !
-#ifdef BREAKUP
-       !calculate breakup based on previous solution
-       call ppiclf_user_breakup
+#if PPICLF_USER == 1
+       call ppiclf_user_subroutines
 #endif
 
       ! save stage 1 solution
@@ -1207,8 +1206,8 @@ c----------------------------------------------------------------------
          call ppiclf_solve_SetYdot
 
          ! rk3 integrate
+         ndum = PPICLF_NPART*PPICLF_LRS
          do i=1,ndum
-            ndum = PPICLF_NPART*PPICLF_LRS
             ppiclf_y(i,1) =  ppiclf_rk3coef(1,istage)*ppiclf_y1   (i)
      >                     + ppiclf_rk3coef(2,istage)*ppiclf_y    (i,1)
      >                     + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
@@ -1236,15 +1235,19 @@ c----------------------------------------------------------------------
 !
       real*8 cdt
       logical iout, lintpts, last
+      common /lscpts/ lintpts, last
 !
-      cdt = ppiclf_dt/ncycle
+      ! save original value
+      cdt = ppiclf_dt
+      ppiclf_dt = cdt/ncycle
+
       ! get rk3 coeffs
-      call ppiclf_solve_SetRK3Coeff(cdt)
+      call ppiclf_solve_SetRK3Coeff(ppiclf_dt)
+
       do icycle=1,ncycle
 
-#ifdef BREAKUP
-       !calculate breakup based on previous solution
-       call ppiclf_user_breakup
+#if PPICLF_USER == 1
+       call ppiclf_user_subroutines
 #endif
 
        ! save stage 1 solution
@@ -1259,15 +1262,18 @@ c----------------------------------------------------------------------
 
           lintpts = (istage.eq.1)
           ! evaluate ydot using frozen carrier phase
-          call ppiclf_solve_SetYdotSC(lintpts, last)
+          call ppiclf_solve_SetYdotSC
 
           ! rk3 integrate
+          ndum = PPICLF_NPART*PPICLF_LRS
           do i=1,ndum
-c             ndum = PPICLF_NPART*PPICLF_LRS
              ppiclf_y(i,1) =  ppiclf_rk3coef(1,istage)*ppiclf_y1   (i)
      >                      + ppiclf_rk3coef(2,istage)*ppiclf_y    (i,1)
      >                      + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
           enddo
+#if PPICLF_USER == 1
+          call ppiclf_user_checkforremoval
+#endif
        enddo
       enddo
 
@@ -1276,6 +1282,9 @@ c             ndum = PPICLF_NPART*PPICLF_LRS
      >     call ppiclf_solve_ProjectParticleGrid
 
       iout = .true.
+
+      ! restore original
+      ppiclf_dt = cdt
 
       return
       end
@@ -1296,9 +1305,8 @@ c----------------------------------------------------------------------
 !
       logical iout
 !
-#ifdef BREAKUP
-       !calculate breakup based on previous solution
-       call ppiclf_user_breakup
+#if PPICLF_USER == 1
+       call ppiclf_user_subroutines
 #endif
 
       ! save stage 1 solution
@@ -1317,8 +1325,8 @@ c----------------------------------------------------------------------
          call ppiclf_solve_SetYdot_fast
 
          ! rk3 integrate
+         ndum = PPICLF_NPART*PPICLF_LRS
          do i=1,ndum
-c            ndum = PPICLF_NPART*PPICLF_LRS
             ppiclf_y(i,1) =  ppiclf_rk3coef(1,istage)*ppiclf_y1   (i)
      >                     + ppiclf_rk3coef(2,istage)*ppiclf_y    (i,1)
      >                     + ppiclf_rk3coef(3,istage)*ppiclf_ydot (i,1)
@@ -1384,16 +1392,15 @@ c----------------------------------------------------------------------
       return
       end
 c----------------------------------------------------------------------
-      subroutine ppiclf_solve_SetYdotSC(lintpts,last)
+      subroutine ppiclf_solve_SetYdotSC
 !
       implicit none
 !
       include "PPICLF"
 ! 
-      logical last,lintpts
-
-      call ppiclf_solve_InitSolveSC(lintpts,last)
+      call ppiclf_solve_InitSolveSC
       call ppiclf_user_SetYdot
+c      call ppiclf_solve_RemoveParticle
 
       return
       end
@@ -1406,6 +1413,7 @@ c----------------------------------------------------------------------
 ! 
       call ppiclf_solve_InitSolve_fast
       call ppiclf_user_SetYdot
+      call ppiclf_solve_RemoveParticle
 
       return
       end
@@ -1423,7 +1431,7 @@ c----------------------------------------------------------------------
       return
       end
 c----------------------------------------------------------------------
-      subroutine ppiclf_solve_InitSolveSC(lintpts,last)
+      subroutine ppiclf_solve_InitSolveSC
 !
       implicit none
 !
@@ -1433,6 +1441,7 @@ c----------------------------------------------------------------------
 ! 
       integer*4 i, j
       logical last, lintpts
+      common /lscpts/ lintpts, last
 !
       call ppiclf_comm_CreateBin
       call ppiclf_comm_FindParticle
@@ -1881,6 +1890,7 @@ c     ndum    = ppiclf_neltb*n
       real*8 coord(rstride,PPICLF_LPART)
       integer*4 flag(istride,PPICLF_LPART)
       integer*4 fp_handle, i, j, k, npart
+      integer*4 nfpsum
       external ppiclf_iglsum
       integer*4 ppiclf_iglsum
       integer*4 npt_max, np, ndum
@@ -1901,7 +1911,8 @@ c     ndum    = ppiclf_neltb*n
          endif
       enddo
 
-      if (ppiclf_iglsum(npart,1) .eq. 0) then
+      nfpsum = ppiclf_iglsum(npart,1)
+      if (nfpsum .eq. 0) then
          return
       endif
 
