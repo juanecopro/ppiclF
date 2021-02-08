@@ -44,6 +44,9 @@
       end
 !-----------------------------------------------------------------------
       subroutine ppiclf_comm_CreateBin
+#if PPICLF_ZOLTAN 1
+      use zoltanRCB
+#endif
 !
       implicit none
 !
@@ -322,6 +325,42 @@ c     if (npt_total .eq. 1) then
             ppiclf_binz(2,1) = ppiclf_binb(5)+(kdum+1)*ppiclf_bins_dx(3)
          endif
       endif
+
+#if PPICLF_ZOLTAN 1
+      numGlobObjs = npt_total
+      numLocObjs = ppiclf_npart
+
+      if(icalld .eq.0) then
+        allocate(gids(ppiclf_np))
+        allocate(iwork(ppiclf_np))
+        allocate(part_grid(PPICLF_LPART,3))
+        myrank = ppiclf_nid
+        ndimpart = ppiclf_ndim
+        icalld=1
+      endif
+
+      gids = 0
+      iwork = 0
+      do i=1,ppiclf_nid+1
+        gids(i)=ppiclf_npart
+      enddo
+      call ppiclf_igop(gids,iwork,'+  ',ppiclf_np)
+      
+      do i=1,ppiclf_npart
+        part_grid(i,ix)= int((ppiclf_y(ix,i)-ppiclf_binb(1))
+     >                      /ppiclf_d2chk(1))*ppiclf_d2chk(1) +
+     >                       ppiclf_binb(1)
+        part_grid(i,iy)= int((ppiclf_y(iy,i)-ppiclf_binb(3))
+     >                      /ppiclf_d2chk(1))*ppiclf_d2chk(1) +
+     >                       ppiclf_binb(3)
+        ! protect against 2D  case
+        part_grid(i,iz)= int((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
+     >                      /ppiclf_d2chk(1))*ppiclf_d2chk(1) +
+     >                       ppiclf_binb(iz*2-1)
+      enddo
+
+      call partitionWithRCB()
+#endif
 
       return
       end
@@ -682,6 +721,9 @@ c     current box coordinates
       end
 c-----------------------------------------------------------------------
       subroutine ppiclf_comm_FindParticle
+#if PPICLF_ZOLTAN 1
+      use zoltanRCB
+#endif 
 !
       implicit none
 !
@@ -705,8 +747,13 @@ c-----------------------------------------------------------------------
          if (ppiclf_ndim .lt. 3) kk = 0
          ndum  = ii + ppiclf_n_bins(1)*jj + 
      >                ppiclf_n_bins(1)*ppiclf_n_bins(2)*kk
+#if PPICLF_ZOLTAN 1
+         ! rank from zoltan
+         nrank = exportProcs(i)
+#else
+         ! rank from binning
          nrank = ndum
-
+#endif
          ppiclf_iprop(8,i)  = ii
          ppiclf_iprop(9,i)  = jj
          ppiclf_iprop(10,i) = kk
@@ -782,6 +829,10 @@ c-----------------------------------------------------------------------
 c-----------------------------------------------------------------------
       subroutine ppiclf_comm_CreateGhost
 !
+#if PPICLF_ZOLTAN 1
+      use zoltan
+      use zoltanRCB
+#endif
       implicit none
 !
       include "PPICLF"
@@ -846,8 +897,23 @@ c CREATING GHOST PARTICLES
 
       rfac = 1.0d0
 
+#if PPICLF_ZOLTAN 1
+      ! get partition dimensions from Zoltan
+      rxl = locMin(1)
+      rxr = locMax(1)
+      ryl = locMin(2)
+      ryr = locMax(2)
+      rzl = 0.0d0
+      rzr = 0.0d0
+      if (ppiclf_ndim .gt. 2) then
+         rzl = locMin(3)
+         rzr = locMax(3)
+      endif
+#endif
+
       do ip=1,ppiclf_npart
 
+         ! preparing particles for projection
          call ppiclf_user_MapProjPart(map,ppiclf_y(1,ip)
      >         ,ppiclf_ydot(1,ip),ppiclf_ydotc(1,ip),ppiclf_rprop(1,ip))
 
@@ -874,15 +940,66 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
             ppiclf_cp_map(idum,ip) = map(j)
          enddo
 
+         ! particle coordinates
          rxval = ppiclf_cp_map(1,ip)
          ryval = ppiclf_cp_map(2,ip)
          rzval = 0.0d0
          if (ppiclf_ndim .gt. 2) rzval = ppiclf_cp_map(3,ip)
 
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         !! Particle proc based on binning !!
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          iip    = ppiclf_iprop(8,ip)
          jjp    = ppiclf_iprop(9,ip)
          kkp    = ppiclf_iprop(10,ip)
 
+#if PPICLF_ZOLTAN 1
+         !! Evaluate bounding box for particle
+         distchk = (rfac*ppiclf_d2chk(1))
+         if(  abs(rxval-rxl).lt.distchk 
+     >   .or. abs(rxval-rxr).lt.distchk
+     >   .or. abs(ryval-ryr).lt.distchk
+     >   .or. abs(ryval-ryr).lt.distchk
+     >   .or. abs(rzval-rzr).lt.distchk
+     >   .or. abs(rzval-rzr).lt.distchk) then
+           ierr =  Zoltan_LB_Box_PP_Assign(zz_obj
+     >            ,rxval-distchk
+     >            ,ryval-distchk
+     >            ,rzval-distchk
+     >            ,rxval+distchk
+     >            ,ryval+distchk
+     >            ,rzval+distchk
+     >            ,nbprocs
+     >            ,numnbprocs
+     >            ,nbparts
+     >            ,numnbparts)
+           do j=1,numnbprocs
+
+             if(nbprocs(j).eq.ppiclf_nid) cycle
+
+             ndumn = nbprocs(j)
+             nrank = ndumn
+             rxnew(1) = rxval
+             rxnew(2) = ryval
+             rxnew(3) = rzval
+       
+             ppiclf_npart_gp = ppiclf_npart_gp + 1
+             ppiclf_iprop_gp(1,ppiclf_npart_gp) = nrank
+             ppiclf_iprop_gp(2,ppiclf_npart_gp) = iip
+             ppiclf_iprop_gp(3,ppiclf_npart_gp) = jjp
+             ppiclf_iprop_gp(4,ppiclf_npart_gp) = kkp
+             ppiclf_iprop_gp(5,ppiclf_npart_gp) = ndumn
+
+             ppiclf_rprop_gp(1,ppiclf_npart_gp) = rxnew(1)
+             ppiclf_rprop_gp(2,ppiclf_npart_gp) = rxnew(2)
+             ppiclf_rprop_gp(3,ppiclf_npart_gp) = rxnew(3)
+             do k=4,PPICLF_LRP_GP
+                ppiclf_rprop_gp(k,ppiclf_npart_gp) = ppiclf_cp_map(k,ip)
+             enddo
+
+           enddo
+         endif
+#else
          rxl = ppiclf_binb(1) + ppiclf_bins_dx(1)*iip
          rxr = rxl + ppiclf_bins_dx(1)
          ryl = ppiclf_binb(3) + ppiclf_bins_dx(2)*jjp
@@ -896,6 +1013,10 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
 
          isave = 0
 
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         !! Determine where ghost particles will go based on !!
+         !! faces, edges and corners of cartesian bins       !!
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! faces
          do ifc=1,nfacegp
             ist = (ifc-1)*3
@@ -937,7 +1058,7 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
             if (iig .lt. 0 .or. iig .gt. ppiclf_n_bins(1)-1) then
                iflgx = 1
                iig =modulo(iig,ppiclf_n_bins(1))
-               if (iperiodicx .ne. 0) cycle
+               if (iperiodicx .ne. 0) cycle !not periodic == 1
             endif
             if (jjg .lt. 0 .or. jjg .gt. ppiclf_n_bins(2)-1) then
                iflgy = 1
@@ -1180,6 +1301,7 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
             enddo
   333 continue
          enddo
+#endif
 
       enddo
 

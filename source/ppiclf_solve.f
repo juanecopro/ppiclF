@@ -64,7 +64,6 @@
          if(icalld.eq.0) call ppiclf_prints('     -Begin MoveParticle$')
             call ppiclf_comm_MoveParticle
          if(icalld.eq.0) call ppiclf_prints('      End MoveParticle$')
-
       endif
 
       if(icalld.eq.0) call ppiclf_prints('    End AddParticles$')
@@ -916,6 +915,10 @@
       real*8 xl
       real*8 xr
 ! 
+#if PPICLF_ZOLTAN 1
+      call ppiclf_exitt('Periodic not yet supported with Zoltan$',0)
+#endif
+
       if (xl .ge. xr)
      >call ppiclf_exittr('PeriodicX must have xl < xr$',xl,0)
 
@@ -945,6 +948,9 @@
       real*8 yl
       real*8 yr
 ! 
+#if PPICLF_ZOLTAN 1
+      call ppiclf_exitt('Periodic not yet supported with Zoltan$',0)
+#endif
       if (yl .ge. yr)
      >call ppiclf_exittr('PeriodicY must have yl < yr$',yl,0)
 
@@ -974,6 +980,9 @@
       real*8 zl
       real*8 zr
 ! 
+#if PPICLF_ZOLTAN 1
+      call ppiclf_exitt('Periodic not yet supported with Zoltan$',0)
+#endif
       if (zl .ge. zr)
      >call ppiclf_exittr('PeriodicZ must have zl < zr$',zl,0)
       if (ppiclf_ndim .lt. 3)
