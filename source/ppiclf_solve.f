@@ -13,7 +13,6 @@
 ! Input: 
 !
       integer*4  npart
-      integer*4  icalld
       real*8     y(*)
       real*8     rprop(*)
 !
@@ -21,17 +20,15 @@
 !
       integer*4 ppiclf_iglsum
       external ppiclf_iglsum
-      save icalld
-      data icalld /0/
 !
 
-      if(icalld.eq.0) call ppiclf_prints('   *Begin AddParticles$')
+      call ppiclf_prints('   *Begin AddParticles$')
 
       if (ppiclf_npart+npart .gt. PPICLF_LPART .or. npart .lt. 0)
      >   call ppiclf_exittr('Invalid number of particles$',
      >                      0.0,ppiclf_npart+npart)
 
-      if(icalld.eq.0) call ppiclf_printsi
+      call ppiclf_printsi
      >                ('     -Begin copy particles$',npart)
 
       ! First, append arrays onto existing arrays
@@ -43,31 +40,30 @@
      >                 npart*PPICLF_LRP)
       ppiclf_npart = ppiclf_npart + npart
 
-      if(icalld.eq.0) call ppiclf_printsi('     -End copy particles$'
+      call ppiclf_printsi('     -End copy particles$'
      >                                    ,ppiclf_npart)
 
       if (.not. PPICLF_RESTART) then
-         if(icalld.eq.0) call ppiclf_prints('     -Begin ParticleTag$')
+         call ppiclf_prints('     -Begin ParticleTag$')
             call ppiclf_solve_SetParticleTag(npart)
-         if(icalld.eq.0) call ppiclf_prints('      End ParticleTag$')
+         call ppiclf_prints('      End ParticleTag$')
       endif
 
       if (ppiclf_iglsum(ppiclf_npart,1).gt.0) then
-         if(icalld.eq.0) call ppiclf_prints('     -Begin CreateBin$')
+         call ppiclf_prints('     -Begin CreateBin$')
             call ppiclf_comm_CreateBin
-         if(icalld.eq.0) call ppiclf_prints('      End CreateBin$')
+         call ppiclf_prints('      End CreateBin$')
 
-         if(icalld.eq.0) call ppiclf_prints('     -Begin FindParticle$')
+         call ppiclf_prints('     -Begin FindParticle$')
             call ppiclf_comm_FindParticle
-         if(icalld.eq.0) call ppiclf_prints('      End FindParticle$')
+         call ppiclf_prints('      End FindParticle$')
 
-         if(icalld.eq.0) call ppiclf_prints('     -Begin MoveParticle$')
+         call ppiclf_prints('     -Begin MoveParticle$')
             call ppiclf_comm_MoveParticle
-         if(icalld.eq.0) call ppiclf_prints('      End MoveParticle$')
+         call ppiclf_prints('      End MoveParticle$')
       endif
 
-      if(icalld.eq.0) call ppiclf_prints('    End AddParticles$')
-      if(icalld.eq.0) icalld = 1
+      call ppiclf_prints('    End AddParticles$')
 
       end
 !-----------------------------------------------------------------------
@@ -915,8 +911,9 @@
       real*8 xl
       real*8 xr
 ! 
-#if PPICLF_ZOLTAN 1
-      call ppiclf_exitt('Periodic not yet supported with Zoltan$',0)
+#if PPICLF_ZOLTAN==1
+      call ppiclf_exittr('Periodic not yet supported with Zoltan$',
+     >                    0.0,0)
 #endif
 
       if (xl .ge. xr)
@@ -948,8 +945,9 @@
       real*8 yl
       real*8 yr
 ! 
-#if PPICLF_ZOLTAN 1
-      call ppiclf_exitt('Periodic not yet supported with Zoltan$',0)
+#if PPICLF_ZOLTAN==1
+      call ppiclf_exittr('Periodic not yet supported with Zoltan$',
+     >                    0.0,0)
 #endif
       if (yl .ge. yr)
      >call ppiclf_exittr('PeriodicY must have yl < yr$',yl,0)
@@ -980,8 +978,9 @@
       real*8 zl
       real*8 zr
 ! 
-#if PPICLF_ZOLTAN 1
-      call ppiclf_exitt('Periodic not yet supported with Zoltan$',0)
+#if PPICLF_ZOLTAN==1
+      call ppiclf_exittr('Periodic not yet supported with Zoltan$',
+     >                    0.0,0)
 #endif
       if (zl .ge. zr)
      >call ppiclf_exittr('PeriodicZ must have zl < zr$',zl,0)

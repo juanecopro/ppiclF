@@ -11,9 +11,10 @@
   !! particle data for RCB
   integer :: numGlobObjs, numLocObjs
   real(8), dimension(:,:), allocatable :: part_grid
-  integer(ZOLTAN_INT), dimension(:), allocatable :: gids, iwork
-  real(Zoltan_DOUBLE), dimension(3) :: localMin, localMax
-  integer(Zoltan_INT), dimension(24) :: nbparts, nbprocs
+  real(8) :: grid_dx
+  integer(ZOLTAN_INT), dimension(:), allocatable :: gids, iwork, iprocp
+  real(Zoltan_DOUBLE), dimension(3) :: locMin, locMax
+  integer(Zoltan_INT), dimension(27) :: nbparts, nbprocs
   integer(Zoltan_int) :: numnbparts, numnbprocs
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -21,6 +22,7 @@
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   type(Zoltan_Struct), pointer :: zz_obj
   integer(ZOLTAN_INT) :: ierr
+  real(ZOLTAN_FLOAT) :: version
   integer(ZOLTAN_INT) :: myrank, ndimpart
   LOGICAL :: changes 
   INTEGER(Zoltan_INT) :: numGidEntries, numLidEntries
@@ -38,6 +40,7 @@
 
     deallocate(gids)
     deallocate(iwork)
+    deallocate(iprocp)
     deallocate(part_grid)
     call Zoltan_Destroy(zz_obj)
 
@@ -55,9 +58,11 @@
     integer, save :: icalld = 0
 
     if(icalld.eq.0)then
+
+      ierr = Zoltan_Initialize(version)
       nullify(zz_obj)
       !! This is Fortran 90 code! hope it works
-      zz_obj => Zoltan_Create(ppiclf_comm)
+      zz_obj => Zoltan_Create(comm)
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !! General Zoltan Parameters
@@ -67,7 +72,9 @@
       ierr = Zoltan_Set_param(zz_obj, "RCB_RECTILINEAR_BLOCKS", "TRUE")
       ierr = Zoltan_Set_param(zz_obj, "RETURN_LISTS", "PARTS")
       ierr = Zoltan_Set_param(zz_obj, "REDUCE_DIMENSIONS", "TRUE")
+!      ierr = Zoltan_Set_param(zz_obj, "DEBUG_LEVEL", "5")
 !      ierr = Zoltan_Set_param(zz_obj, "RCB_RECOMPUTE_BOX", "TRUE")
+!      ierr = Zoltan_Set_param(zz_obj, "RCB_OUTPUT_LEVEL", "2")
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !! register query functions
@@ -103,8 +110,8 @@
                                numImport, importGlobalGids, importLocalGids, importProcs, importToPart, &
                                numExport, exportGlobalGids, exportLocalGids, exportProcs, exportToPart)
 
-    ierr = Zoltan_RCB_Box(zz_boj,myrank,ndimpart,locMin(1),locMin(2),locMin(3),
-&                         locMax(1),locMax(2),locMax(3))
+    ierr = Zoltan_RCB_Box(zz_obj,myrank,ndimpart,locMin(1),locMin(2),locMin(3), &
+                          locMax(1),locMax(2),locMax(3))
 
     end subroutine partitionWithRCB
 
@@ -123,6 +130,7 @@
     integer(ZOLTAN_INT), intent(in) :: local_id
     real(ZOLTAN_DOUBLE), intent(out) :: geom_vec(*)
     integer(ZOLTAN_INT), intent(out) :: ierr
+    integer :: i
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do i=1,ndimpart
@@ -168,17 +176,11 @@
     integer(ZOLTAN_INT), intent(out) :: ierr
 
     ! local declarations
-    integer :: i, gidx
+    integer :: i
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    if(myrank.eq.0)then
-        gidx = 0
-    else
-        gidx = gids(myrank)
-    endif
-    
     do i= 1, numLocObjs
-      global_ids(i)= gidx+i
+      global_ids(i)= gids(i)
       local_ids(i) = i
     end do
     
@@ -202,5 +204,4 @@
     ierr = ZOLTAN_OK
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   end function zoltNumGeom
-
   end module

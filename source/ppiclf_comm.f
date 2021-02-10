@@ -44,7 +44,7 @@
       end
 !-----------------------------------------------------------------------
       subroutine ppiclf_comm_CreateBin
-#if PPICLF_ZOLTAN 1
+#if PPICLF_ZOLTAN==1
       use zoltanRCB
 #endif
 !
@@ -69,6 +69,9 @@
       external ppiclf_iglsum
       real*8 ppiclf_glmin,ppiclf_glmax,ppiclf_glsum
       external ppiclf_glmin,ppiclf_glmax,ppiclf_glsum
+      integer icalld, istart
+      save icalld
+      data icalld /0/
 !
 
 ! face, edge, and corner number, x,y,z are all inline, so stride=3
@@ -326,12 +329,14 @@ c     if (npt_total .eq. 1) then
          endif
       endif
 
-#if PPICLF_ZOLTAN 1
+#if PPICLF_ZOLTAN==1
       numGlobObjs = npt_total
       numLocObjs = ppiclf_npart
+      grid_dx = ppiclf_d2chk(1)
 
       if(icalld .eq.0) then
-        allocate(gids(ppiclf_np))
+        allocate(gids(PPICLF_LPART))
+        allocate(iprocp(ppiclf_np))
         allocate(iwork(ppiclf_np))
         allocate(part_grid(PPICLF_LPART,3))
         myrank = ppiclf_nid
@@ -340,26 +345,30 @@ c     if (npt_total .eq. 1) then
       endif
 
       gids = 0
+      iprocp = 0
       iwork = 0
       do i=1,ppiclf_nid+1
-        gids(i)=ppiclf_npart
+        iprocp(i)=ppiclf_npart
       enddo
-      call ppiclf_igop(gids,iwork,'+  ',ppiclf_np)
+      call ppiclf_igop(iprocp,iwork,'+  ',ppiclf_np)
       
+      istart = 0
+      if(ppiclf_nid.gt.0) istart = iprocp(ppiclf_nid)
       do i=1,ppiclf_npart
+        gids(i)=istart + i
         part_grid(i,ix)= int((ppiclf_y(ix,i)-ppiclf_binb(1))
-     >                      /ppiclf_d2chk(1))*ppiclf_d2chk(1) +
+     >                      /grid_dx)*grid_dx +
      >                       ppiclf_binb(1)
         part_grid(i,iy)= int((ppiclf_y(iy,i)-ppiclf_binb(3))
-     >                      /ppiclf_d2chk(1))*ppiclf_d2chk(1) +
+     >                      /grid_dx)*grid_dx +
      >                       ppiclf_binb(3)
         ! protect against 2D  case
         part_grid(i,iz)= int((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
-     >                      /ppiclf_d2chk(1))*ppiclf_d2chk(1) +
+     >                      /grid_dx)*grid_dx +
      >                       ppiclf_binb(iz*2-1)
       enddo
 
-      call partitionWithRCB()
+      call partitionWithRCB(ppiclf_comm)
 #endif
 
       return
@@ -721,7 +730,7 @@ c     current box coordinates
       end
 c-----------------------------------------------------------------------
       subroutine ppiclf_comm_FindParticle
-#if PPICLF_ZOLTAN 1
+#if PPICLF_ZOLTAN==1
       use zoltanRCB
 #endif 
 !
@@ -747,7 +756,7 @@ c-----------------------------------------------------------------------
          if (ppiclf_ndim .lt. 3) kk = 0
          ndum  = ii + ppiclf_n_bins(1)*jj + 
      >                ppiclf_n_bins(1)*ppiclf_n_bins(2)*kk
-#if PPICLF_ZOLTAN 1
+#if PPICLF_ZOLTAN==1
          ! rank from zoltan
          nrank = exportProcs(i)
 #else
@@ -761,6 +770,7 @@ c-----------------------------------------------------------------------
 
          ppiclf_iprop(3,i)  = nrank ! where particle is actually moved
          ppiclf_iprop(4,i)  = nrank ! where particle is actually moved
+         ppiclf_iprop(5,i)  = nrank ! CHANGED TAG
       enddo
 
       return
@@ -829,7 +839,7 @@ c-----------------------------------------------------------------------
 c-----------------------------------------------------------------------
       subroutine ppiclf_comm_CreateGhost
 !
-#if PPICLF_ZOLTAN 1
+#if PPICLF_ZOLTAN==1
       use zoltan
       use zoltanRCB
 #endif
@@ -897,7 +907,7 @@ c CREATING GHOST PARTICLES
 
       rfac = 1.0d0
 
-#if PPICLF_ZOLTAN 1
+#if PPICLF_ZOLTAN==1
       ! get partition dimensions from Zoltan
       rxl = locMin(1)
       rxr = locMax(1)
@@ -953,15 +963,19 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
          jjp    = ppiclf_iprop(9,ip)
          kkp    = ppiclf_iprop(10,ip)
 
-#if PPICLF_ZOLTAN 1
+#if PPICLF_ZOLTAN==1
          !! Evaluate bounding box for particle
-         distchk = (rfac*ppiclf_d2chk(1))
+         distchk = (rfac*grid_dx)
          if(  abs(rxval-rxl).lt.distchk 
      >   .or. abs(rxval-rxr).lt.distchk
+     >   .or. abs(ryval-ryl).lt.distchk
      >   .or. abs(ryval-ryr).lt.distchk
-     >   .or. abs(ryval-ryr).lt.distchk
-     >   .or. abs(rzval-rzr).lt.distchk
+     >   .or. abs(rzval-rzl).lt.distchk
      >   .or. abs(rzval-rzr).lt.distchk) then
+         !! if near partition boundaries,
+         !! check which partitions are within box
+!! This would be better if we could check with a sphere
+!! instead of a box, but this is good enough for now.
            ierr =  Zoltan_LB_Box_PP_Assign(zz_obj
      >            ,rxval-distchk
      >            ,ryval-distchk

@@ -6,11 +6,11 @@ CC               = mpiicc  # Valid MPI C compiler
 #CPFLAGS         += -qoffload-option,mic,compiler, "-O3" -O3 -axCORE-AVX2 -xSSE4.2 -E
 #OPTFLAGS        = -xmic-avx512
 #OPTFLAGS        = -xCORE-AVX2
-OPTFLAGS        = -axMIC-AVX512,CORE-AVX2
-#OPTFLAGS        = -g -traceback
-FFLAGS          += $(OPTFLAGS) -heap-arrays -cpp
-CPFLAGS         += $(OPTFLAGS) -heap-arrays -E
-#FFLAGS          += -DPPICLC
+#OPTFLAGS        = -axMIC-AVX512,CORE-AVX2
+OPTFLAGS        = -g -traceback
+FFLAGS          += $(OPTFLAGS) -cpp
+CPFLAGS         += $(OPTFLAGS) -E
+FFLAGS          += -I${HOME}/Zoltan/build/include 
  	           
 INSTALL_LOCATION = .
 
@@ -38,7 +38,7 @@ OBJ = $(SOURCE_ROOT_PPICLF)/ppiclf_user.o     \
       $(SOURCE_ROOT_PPICLF)/ppiclf_op.o       \
       $(SOURCE_ROOT_PPICLF)/ppiclf_io.o       \
       $(SOURCE_ROOT_PPICLF)/ppiclf_solve.o    \
-      $(SOURCE_ROOT_PPICLF)/ppiclf_mxm.o
+      $(SOURCE_ROOT_PPICLF)/ppiclf_mxm.o      
 PRE = $(SOURCE_ROOT_PPICLF)/PPICLF_SOLN.h     \
       $(SOURCE_ROOT_PPICLF)/PPICLF_GRID.h     \
       $(SOURCE_ROOT_PPICLF)/PPICLF_OPT.h      \
@@ -48,10 +48,13 @@ POS = $(SOURCE_ROOT_PPICLF)/PPICLF
       
 
 # Make commands
-default: makeThird preProcess getObjs libObjs 
+default: makeThird preProcess zoltanmod getObjs libObjs
 
-libObjs: $(SOURCE_ROOT_PPICLF)/ppiclf.o
-	@ar crv $(SOURCE_ROOT_PPICLF)/libppiclF.a $(SOURCE_ROOT_PPICLF)/ppiclf.o $(SOURCE_ROOT_GSLIB_OBJ)/*.o
+zoltanmod: $(SOURCE_ROOT_PPICLF)/zoltanRCB.f90
+	$(FC) -O2 $(FFLAGS) -c $(SOURCE_ROOT_PPICLF)/zoltanRCB.f90
+
+libObjs: $(SOURCE_ROOT_PPICLF)/ppiclf.o $(SOURCE_ROOT_PPICLF)/zoltanRCB.o
+	@ar crv $(SOURCE_ROOT_PPICLF)/libppiclF.a $(SOURCE_ROOT_PPICLF)/*.o $(SOURCE_ROOT_GSLIB_OBJ)/*.o
 	@echo "                       "
 	@echo "***********************"
 	@echo "*** LIBRARY SUCCESS ***"
