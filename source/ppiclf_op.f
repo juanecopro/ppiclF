@@ -213,6 +213,23 @@ c-----------------------------------------------------------------------
       return
       END
 c-----------------------------------------------------------------------
+      integer*4 function ppiclf_ivlmin(vec,n)
+! 
+      implicit none
+! 
+! Vars:
+! 
+      integer*4 VEC(1),tmin
+      integer*4 i, n
+!
+      TMIN = 2147483647
+      DO 100 I=1,N
+         TMIN = MIN(TMIN,VEC(I))
+ 100  CONTINUE
+      ppiclf_IVLMIN = TMIN
+      return
+      END
+c-----------------------------------------------------------------------
       real*8 function ppiclf_vlmax(vec,n)
 ! 
       implicit none
@@ -227,6 +244,23 @@ c-----------------------------------------------------------------------
          TMAX = MAX(TMAX,VEC(I))
       enddo
       ppiclf_VLMAX = TMAX
+      return
+      END
+c-----------------------------------------------------------------------
+      integer*4 function ppiclf_ivlmax(vec,n)
+! 
+      implicit none
+! 
+! Vars:
+! 
+      integer*4 VEC(1),tmax
+      integer*4 i, n
+!
+      TMAX = -2147483647
+      DO 100 I=1,N
+         TMAX = MAX(TMAX,VEC(I))
+ 100  CONTINUE
+      ppiclf_IVLMAX = TMAX
       return
       END
 c-----------------------------------------------------------------------

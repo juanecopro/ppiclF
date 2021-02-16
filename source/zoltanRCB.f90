@@ -14,7 +14,7 @@
   real(8) :: grid_dx
   integer(ZOLTAN_INT), dimension(:), allocatable :: gids, iwork, iprocp
   real(Zoltan_DOUBLE), dimension(3) :: locMin, locMax
-  integer(Zoltan_INT), dimension(27) :: nbparts, nbprocs
+  integer(Zoltan_INT), dimension(100) :: nbparts, nbprocs
   integer(Zoltan_int) :: numnbparts, numnbprocs
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -44,8 +44,6 @@
     deallocate(part_grid)
     call Zoltan_Destroy(zz_obj)
 
-    ierr = Zoltan_LB_Free_Part(importGlobalGids, importLocalGids, importProcs, importToPart)
-    ierr = Zoltan_LB_Free_Part(exportGlobalGids, exportLocalGids, exportProcs, exportToPart)
 
     end subroutine zoltanRCB_cleanup
 !---------------------------------------------------------------
@@ -55,6 +53,7 @@
     implicit none
 
     integer(4), intent(in) :: comm
+    integer(4) :: i
     integer, save :: icalld = 0
 
     if(icalld.eq.0)then
@@ -68,13 +67,19 @@
       !! General Zoltan Parameters
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ierr = Zoltan_Set_Param(zz_obj, "LB_METHOD", "RCB")
+!      ierr = Zoltan_Set_Param(zz_obj, "IMBALANCE_TOL", "4.0")
       ierr = Zoltan_Set_param(zz_obj, "KEEP_CUTS", "TRUE")
+!      ierr = Zoltan_Set_param(zz_obj, "REMAP", "0")
+      ierr = Zoltan_Set_param(zz_obj, "NUM_LOCAL_PARTS", "1")
       ierr = Zoltan_Set_param(zz_obj, "RCB_RECTILINEAR_BLOCKS", "TRUE")
-      ierr = Zoltan_Set_param(zz_obj, "RETURN_LISTS", "PARTS")
-      ierr = Zoltan_Set_param(zz_obj, "REDUCE_DIMENSIONS", "TRUE")
+      ierr = Zoltan_Set_param(zz_obj, "RETURN_LISTS", "NONE")
+!      ierr = Zoltan_Set_param(zz_obj, "REDUCE_DIMENSIONS", "TRUE")
 !      ierr = Zoltan_Set_param(zz_obj, "DEBUG_LEVEL", "5")
+!      ierr = Zoltan_Set_param(zz_obj, "AVERAGE_CUTS", "TRUE")
 !      ierr = Zoltan_Set_param(zz_obj, "RCB_RECOMPUTE_BOX", "TRUE")
-!      ierr = Zoltan_Set_param(zz_obj, "RCB_OUTPUT_LEVEL", "2")
+      ierr = Zoltan_Set_param(zz_obj, "RCB_OUTPUT_LEVEL", "0")
+!      ierr = Zoltan_Set_param(zz_obj, "RCB_MAX_ASPECT_RATIO", "5")
+      ierr = Zoltan_Set_param(zz_obj, "RCB_REUSE", "2")
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !! register query functions
@@ -113,6 +118,14 @@
     ierr = Zoltan_RCB_Box(zz_obj,myrank,ndimpart,locMin(1),locMin(2),locMin(3), &
                           locMax(1),locMax(2),locMax(3))
 
+!!    write(6,*) 'myrank', myrank
+!!    write(6,'(2I4)') (exportProcs(i), exportToPart(i), i=1,numExport) 
+!!    write(6,*) 'NUMOBJS',myrank, numExport
+!!    write(6,'(A5,I5,2F10.3)') ('Boxes', myrank, locmin(i), locmax(i), i=1,ndimpart)
+
+    ierr = Zoltan_LB_Free_Part(importGlobalGids, importLocalGids, importProcs, importToPart)
+    ierr = Zoltan_LB_Free_Part(exportGlobalGids, exportLocalGids, exportProcs, exportToPart)
+
     end subroutine partitionWithRCB
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -134,7 +147,7 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do i=1,ndimpart
-      geom_vec(i) =  part_grid(local_id,i)
+      geom_vec(i) =  part_grid(i,local_id)
     enddo
 
     ierr = ZOLTAN_OK

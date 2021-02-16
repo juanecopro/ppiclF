@@ -2397,11 +2397,13 @@ c----------------------------------------------------------------------
          iproj(2,ip+ppiclf_npart)  = ppiclf_iprop_gp(3,ip)
          if (if3d)
      >   iproj(3,ip+ppiclf_npart)  = ppiclf_iprop_gp(4,ip)
-         iproj(4,ip+ppiclf_npart)  = ppiclf_iprop_gp(5,ip)
+         iproj(4,ip+ppiclf_npart)  = ppiclf_iprop_gp(5,ip) ! bin or
+                                                 ! Zoltan partition
       enddo
 
       ndum = ppiclf_npart+ppiclf_npart_gp
 
+      ! for each particle, loop over elements
       do ip=1,ndum
          iip      = iproj(1,ip)
          jjp      = iproj(2,ip)
@@ -2428,6 +2430,7 @@ c----------------------------------------------------------------------
 
          do ie=1,ppiclf_neltb
 
+               ! check if element is neighbor of particle
                if (ppiclf_el_map(1,ie) .gt. ndumdum) exit
                if (ppiclf_el_map(2,ie) .lt. ndumdum) cycle 
          
@@ -2443,6 +2446,7 @@ c----------------------------------------------------------------------
          do k=1,PPICLF_LEZ
          do j=1,PPICLF_LEY
          do i=1,PPICLF_LEX
+            ! check bins for individual grid points
             if (ppiclf_modgp(i,j,k,ie,4).ne.ndumdum) cycle
 
             rdist2  = (ppiclf_xm1b(i,j,k,1,ie) - rproj(2,ip))**2 +
@@ -2496,6 +2500,7 @@ c----------------------------------------------------------------------
       ndum = PPICLF_LRMAX*neltbc
       call ppiclf_icopy(ppiclf_er_mapc,ppiclf_er_map,ndum)
       do ie=1,neltbc
+         ! return to original proc
          ppiclf_er_mapc(5,ie) = ppiclf_er_mapc(2,ie)
          ppiclf_er_mapc(6,ie) = ppiclf_er_mapc(2,ie)
       enddo

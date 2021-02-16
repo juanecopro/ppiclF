@@ -338,7 +338,7 @@ c     if (npt_total .eq. 1) then
         allocate(gids(PPICLF_LPART))
         allocate(iprocp(ppiclf_np))
         allocate(iwork(ppiclf_np))
-        allocate(part_grid(PPICLF_LPART,3))
+        allocate(part_grid(ppiclf_ndim,PPICLF_LPART))
         myrank = ppiclf_nid
         ndimpart = ppiclf_ndim
         icalld=1
@@ -347,7 +347,7 @@ c     if (npt_total .eq. 1) then
       gids = 0
       iprocp = 0
       iwork = 0
-      do i=1,ppiclf_nid+1
+      do i=ppiclf_nid+1,ppiclf_np
         iprocp(i)=ppiclf_npart
       enddo
       call ppiclf_igop(iprocp,iwork,'+  ',ppiclf_np)
@@ -356,16 +356,20 @@ c     if (npt_total .eq. 1) then
       if(ppiclf_nid.gt.0) istart = iprocp(ppiclf_nid)
       do i=1,ppiclf_npart
         gids(i)=istart + i
-        part_grid(i,ix)= int((ppiclf_y(ix,i)-ppiclf_binb(1))
-     >                      /grid_dx)*grid_dx +
-     >                       ppiclf_binb(1)
-        part_grid(i,iy)= int((ppiclf_y(iy,i)-ppiclf_binb(3))
-     >                      /grid_dx)*grid_dx +
-     >                       ppiclf_binb(3)
-        ! protect against 2D  case
-        part_grid(i,iz)= int((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
-     >                      /grid_dx)*grid_dx +
-     >                       ppiclf_binb(iz*2-1)
+        part_grid(ix,i)= ppiclf_y(ix,i)
+        part_grid(iy,i)= ppiclf_y(iy,i)
+        part_grid(iz,i)= ppiclf_y(iz,i)
+c!! MAP ONTO UNIFORM GRID
+c        part_grid(i,ix)= int((ppiclf_y(ix,i)-ppiclf_binb(1))
+c     >                      /grid_dx)*grid_dx +
+c     >                       ppiclf_binb(1)
+c        part_grid(i,iy)= int((ppiclf_y(iy,i)-ppiclf_binb(3))
+c     >                      /grid_dx)*grid_dx +
+c     >                       ppiclf_binb(3)
+c        ! protect against 2D  case
+c        part_grid(i,iz)= int((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
+c     >                      /grid_dx)*grid_dx +
+c     >                       ppiclf_binb(iz*2-1)
       enddo
 
       call partitionWithRCB(ppiclf_comm)
@@ -449,7 +453,9 @@ c     current box coordinates
       end
 !-----------------------------------------------------------------------
       subroutine ppiclf_comm_MapOverlapMesh
-!
+#if PPICLF_ZOLTAN==1
+      use zoltanRCB
+#endif
       implicit none
 !
       include "PPICLF"
@@ -462,11 +468,17 @@ c     current box coordinates
       data      icalld /0/
       integer*4 nkey(2), i, j, k, ie, iee, ii, jj, kk, ndum, nrank,
      >          nl, nii, njj, nrr, ilow, jlow, klow, nxyz, il,
-     >          ihigh, jhigh, khigh, ierr
+     >          ihigh, jhigh, khigh, ierr2
       real*8 rxval, ryval, rzval
       logical partl
       real*8 ppiclf_vlmin, ppiclf_vlmax
       external ppiclf_vlmin, ppiclf_vlmax
+      integer*4 ppiclf_ivlmin, ppiclf_ivlmax
+      external ppiclf_ivlmin, ppiclf_ivlmax
+#if PPICLF_ZOLTAN==1
+      real(Zoltan_DOUBLE) coords(3)
+      integer*4 ndum2
+#endif
 
       ! see which bins are in which elements
       ppiclf_neltb = 0
@@ -479,6 +491,7 @@ c     current box coordinates
          rzval = 0.0d0
          if(ppiclf_ndim.gt.2) rzval = ppiclf_xm1bs(i,j,k,3,ie)
 
+         ! Check bounds of particle domain
          if (rxval .gt. ppiclf_binb(2)) goto 1233
          if (rxval .lt. ppiclf_binb(1)) goto 1233
          if (ryval .gt. ppiclf_binb(4)) goto 1233
@@ -498,10 +511,17 @@ c     current box coordinates
           if (ii .eq. -1) ii = 0
           if (jj .eq. -1) jj = 0
           if (kk .eq. -1) kk = 0
+         ! bin number
          ndum  = ii + ppiclf_n_bins(1)*jj + 
      >                ppiclf_n_bins(1)*ppiclf_n_bins(2)*kk
+#if PPICLF_ZOLTAN==1
+         coords(1) = rxval
+         coords(2) = ryval
+         coords(3) = rzval
+         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nrank,ndum2)
+#else
          nrank = ndum
-
+#endif
          if (ii .lt. 0 .or. ii .gt. ppiclf_n_bins(1)-1) goto 1233
          if (jj .lt. 0 .or. jj .gt. ppiclf_n_bins(2)-1) goto 1233
          if (kk .lt. 0 .or. kk .gt. ppiclf_n_bins(3)-1) goto 1233
@@ -534,6 +554,7 @@ c     current box coordinates
       enddo
       enddo
 
+      ! copy send data to buffer
       nxyz = PPICLF_LEX*PPICLF_LEY*PPICLF_LEZ
       do ie=1,ppiclf_neltb
        iee = ppiclf_er_map(1,ie)
@@ -565,6 +586,7 @@ c     current box coordinates
      >       ,ppiclf_er_map,nii,partl,nl,ppiclf_xm1b,nrr,nkey,2)
 
 
+      ! Map received element nodes to bins
       do ie=1,ppiclf_neltb
       do k=1,PPICLF_LEZ
       do j=1,PPICLF_LEY
@@ -587,10 +609,16 @@ c     current box coordinates
           ndum  = ii + ppiclf_n_bins(1)*jj + 
      >                 ppiclf_n_bins(1)*ppiclf_n_bins(2)*kk
 
+#if PPICLF_ZOLTAN==1
+         coords(1) = rxval
+         coords(2) = ryval
+         coords(3) = rzval
+         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nrank,ndum)
+#endif
          ppiclf_modgp(i,j,k,ie,1) = ii
          ppiclf_modgp(i,j,k,ie,2) = jj
          ppiclf_modgp(i,j,k,ie,3) = kk
-         ppiclf_modgp(i,j,k,ie,4) = ndum
+         ppiclf_modgp(i,j,k,ie,4) = ndum ! bin/Zoltan partition
    
       enddo
       enddo
@@ -634,10 +662,23 @@ c     current box coordinates
             khigh = 0
          endif
 
+#if PPICLF_ZOLTAN==1
+         ierr = Zoltan_LB_Box_PP_Assign(zz_obj,
+     >             ppiclf_xerange(1,1,ie),
+     >             ppiclf_xerange(1,2,ie),
+     >             ppiclf_xerange(1,3,ie),
+     >             ppiclf_xerange(2,1,ie),
+     >             ppiclf_xerange(2,2,ie),
+     >             ppiclf_xerange(2,3,ie),
+     >             nbprocs, numnbprocs, nbparts, numnbparts)
+         ppiclf_el_map(1,ie) = ppiclf_ivlmin(nbprocs,numnbprocs)
+         ppiclf_el_map(2,ie) = ppiclf_ivlmax(nbprocs,numnbprocs)
+#else
          ppiclf_el_map(1,ie) = ilow  + ppiclf_n_bins(1)*jlow  
      >                         + ppiclf_n_bins(1)*ppiclf_n_bins(2)*klow
          ppiclf_el_map(2,ie) = ihigh + ppiclf_n_bins(1)*jhigh 
      >                         + ppiclf_n_bins(1)*ppiclf_n_bins(2)*khigh
+#endif
          ppiclf_el_map(3,ie) = ilow
          ppiclf_el_map(4,ie) = ihigh
          ppiclf_el_map(5,ie) = jlow
@@ -655,7 +696,7 @@ c     current box coordinates
      >                         ,ppiclf_nid
      >                         ,0
      >                         ,ppiclf_comm_nid
-     >                         ,ierr)
+     >                         ,ierr2)
          call ppiclf_prints('    End mpi_comm_split$')
 
          call ppiclf_prints('   *Begin InitSolve$')
@@ -740,7 +781,10 @@ c-----------------------------------------------------------------------
 !
 ! Internal:
 !
-      integer*4 ix, iy, iz, i, ii, jj, kk, ndum, nrank
+      integer*4 ix, iy, iz, i, ii, jj, kk, ndum, nrank, ndum2
+#if PPICLF_ZOLTAN==1
+      real(Zoltan_DOUBLE) coords(3)
+#endif 
 !
       ix = 1
       iy = 2
@@ -757,20 +801,29 @@ c-----------------------------------------------------------------------
          ndum  = ii + ppiclf_n_bins(1)*jj + 
      >                ppiclf_n_bins(1)*ppiclf_n_bins(2)*kk
 #if PPICLF_ZOLTAN==1
+
+         coords(1) = ppiclf_y(ix,i)
+         coords(2) = ppiclf_y(iy,i)
+         coords(3) = ppiclf_y(iz,i)
+         if(iz .eq. 1) coords(3) = 0.0
          ! rank from zoltan
-         nrank = exportProcs(i)
+         ierr = Zoltan_LB_Point_PP_Assign(zz_obj, coords, nrank, ndum2)
 #else
          ! rank from binning
          nrank = ndum
 #endif
-         ppiclf_iprop(8,i)  = ii
-         ppiclf_iprop(9,i)  = jj
+         ppiclf_iprop(8 ,i)  = ii
+         ppiclf_iprop(9 ,i)  = jj
          ppiclf_iprop(10,i) = kk
          ppiclf_iprop(11,i) = ndum
 
          ppiclf_iprop(3,i)  = nrank ! where particle is actually moved
          ppiclf_iprop(4,i)  = nrank ! where particle is actually moved
-         ppiclf_iprop(5,i)  = nrank ! CHANGED TAG
+! #if PPICLF_ZOLTAN==1
+!          ppiclf_iprop(5,i)  = nrank ! CHANGED TAG
+!          ppiclf_iprop(6,i)  = gids(i) ! CHANGED TAG
+!          ppiclf_iprop(7,i)  = ppiclf_nid ! CHANGED TAG
+! #endif
       enddo
 
       return
@@ -778,6 +831,9 @@ c-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
       subroutine ppiclf_comm_MoveParticle
 !
+#if PPICLF_ZOLTAN==1
+      use zoltanRCB
+#endif
       implicit none
 !
       include "PPICLF"
@@ -789,6 +845,10 @@ c-----------------------------------------------------------------------
       parameter(lrf = PPICLF_LRS*4 + PPICLF_LRP + PPICLF_LRP2)
       real*8 rwork(lrf,PPICLF_LPART)
       integer*4 i, ic, j0
+#if PPICLF_ZOLTAN==1
+      real*8 ppiclf_vlmin, ppiclf_vlmax
+      external ppiclf_vlmin, ppiclf_vlmax
+#endif
 !
 
       do i=1,ppiclf_npart
@@ -907,20 +967,6 @@ c CREATING GHOST PARTICLES
 
       rfac = 1.0d0
 
-#if PPICLF_ZOLTAN==1
-      ! get partition dimensions from Zoltan
-      rxl = locMin(1)
-      rxr = locMax(1)
-      ryl = locMin(2)
-      ryr = locMax(2)
-      rzl = 0.0d0
-      rzr = 0.0d0
-      if (ppiclf_ndim .gt. 2) then
-         rzl = locMin(3)
-         rzr = locMax(3)
-      endif
-#endif
-
       do ip=1,ppiclf_npart
 
          ! preparing particles for projection
@@ -966,12 +1012,12 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
 #if PPICLF_ZOLTAN==1
          !! Evaluate bounding box for particle
          distchk = (rfac*grid_dx)
-         if(  abs(rxval-rxl).lt.distchk 
-     >   .or. abs(rxval-rxr).lt.distchk
-     >   .or. abs(ryval-ryl).lt.distchk
-     >   .or. abs(ryval-ryr).lt.distchk
-     >   .or. abs(rzval-rzl).lt.distchk
-     >   .or. abs(rzval-rzr).lt.distchk) then
+         if(  abs(rxval-locMin(1)).lt.distchk 
+     >   .or. abs(rxval-locMax(1)).lt.distchk
+     >   .or. abs(ryval-locMin(2)).lt.distchk
+     >   .or. abs(ryval-locMax(2)).lt.distchk
+     >   .or. abs(rzval-locMin(3)).lt.distchk
+     >   .or. abs(rzval-locMax(3)).lt.distchk) then
          !! if near partition boundaries,
          !! check which partitions are within box
 !! This would be better if we could check with a sphere
@@ -991,8 +1037,8 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
 
              if(nbprocs(j).eq.ppiclf_nid) cycle
 
-             ndumn = nbprocs(j)
-             nrank = ndumn
+             nrank = nbprocs(j)
+             ndumn = nrank
              rxnew(1) = rxval
              rxnew(2) = ryval
              rxnew(3) = rzval
@@ -1002,7 +1048,7 @@ c        ppiclf_cp_map(idum,ip) = ppiclf_y(idum,ip)
              ppiclf_iprop_gp(2,ppiclf_npart_gp) = iip
              ppiclf_iprop_gp(3,ppiclf_npart_gp) = jjp
              ppiclf_iprop_gp(4,ppiclf_npart_gp) = kkp
-             ppiclf_iprop_gp(5,ppiclf_npart_gp) = ndumn
+             ppiclf_iprop_gp(5,ppiclf_npart_gp) = ndumn ! destination
 
              ppiclf_rprop_gp(1,ppiclf_npart_gp) = rxnew(1)
              ppiclf_rprop_gp(2,ppiclf_npart_gp) = rxnew(2)
