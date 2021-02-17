@@ -120,7 +120,7 @@
 
       call ppiclf_prints(' End InitParticle$')
 
-            call ppiclf_io_OutputDiagGen
+      call ppiclf_io_OutputDiagGen
 
       PPICLF_LINIT = .true.
 
@@ -186,9 +186,9 @@
       ppiclf_d2chk(2) = 0.0d0
       ppiclf_d2chk(3) = 0.0d0
 
-      ppiclf_n_bins(1) = 1
-      ppiclf_n_bins(2) = 1
-      ppiclf_n_bins(3) = 1
+      ppiclf_n_bins(1) = 0
+      ppiclf_n_bins(2) = 0
+      ppiclf_n_bins(3) = 0
 
       ppiclf_bins_set(1) = 0
       ppiclf_bins_set(2) = 0
@@ -2431,8 +2431,10 @@ c----------------------------------------------------------------------
          do ie=1,ppiclf_neltb
 
                ! check if element is neighbor of particle
+#if PPICLF_ZOLTAN==0
                if (ppiclf_el_map(1,ie) .gt. ndumdum) exit
                if (ppiclf_el_map(2,ie) .lt. ndumdum) cycle 
+#endif
          
                if (ppiclf_el_map(3,ie) .gt. ihigh) cycle
                if (ppiclf_el_map(4,ie) .lt. ilow)  cycle

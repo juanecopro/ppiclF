@@ -356,20 +356,20 @@ c     if (npt_total .eq. 1) then
       if(ppiclf_nid.gt.0) istart = iprocp(ppiclf_nid)
       do i=1,ppiclf_npart
         gids(i)=istart + i
-        part_grid(ix,i)= ppiclf_y(ix,i)
-        part_grid(iy,i)= ppiclf_y(iy,i)
-        part_grid(iz,i)= ppiclf_y(iz,i)
-c!! MAP ONTO UNIFORM GRID
-c        part_grid(i,ix)= int((ppiclf_y(ix,i)-ppiclf_binb(1))
-c     >                      /grid_dx)*grid_dx +
-c     >                       ppiclf_binb(1)
-c        part_grid(i,iy)= int((ppiclf_y(iy,i)-ppiclf_binb(3))
-c     >                      /grid_dx)*grid_dx +
-c     >                       ppiclf_binb(3)
-c        ! protect against 2D  case
-c        part_grid(i,iz)= int((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
-c     >                      /grid_dx)*grid_dx +
-c     >                       ppiclf_binb(iz*2-1)
+c        part_grid(ix,i)= ppiclf_y(ix,i)
+c        part_grid(iy,i)= ppiclf_y(iy,i)
+c        part_grid(iz,i)= ppiclf_y(iz,i)
+!! MAP ONTO UNIFORM GRID
+        part_grid(ix,i)= floor((ppiclf_y(ix,i)-ppiclf_binb(1))
+     >                      /grid_dx)*grid_dx +
+     >                       ppiclf_binb(1)
+        part_grid(iy,i)= floor((ppiclf_y(iy,i)-ppiclf_binb(3))
+     >                      /grid_dx)*grid_dx +
+     >                       ppiclf_binb(3)
+        ! protect against 2D  case
+        part_grid(iz,i)= floor((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
+     >                      /grid_dx)*grid_dx +
+     >                       ppiclf_binb(iz*2-1)
       enddo
 
       call partitionWithRCB(ppiclf_comm)
@@ -501,6 +501,9 @@ c     current box coordinates
          if (ppiclf_ndim.gt.2 .and. rzval .lt. ppiclf_binb(5))
      >      goto 1233
 
+         if(ppiclf_n_bins(1)*ppiclf_n_bins(2)*ppiclf_n_bins(3)
+     >      .eq. 0) goto 1244
+
          ii    = floor((rxval-ppiclf_binb(1))/ppiclf_bins_dx(1)) 
          jj    = floor((ryval-ppiclf_binb(3))/ppiclf_bins_dx(2)) 
          kk    = floor((rzval-ppiclf_binb(5))/ppiclf_bins_dx(3)) 
@@ -518,7 +521,7 @@ c     current box coordinates
          coords(1) = rxval
          coords(2) = ryval
          coords(3) = rzval
-         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nrank,ndum2)
+         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nrank,ndum)
 #else
          nrank = ndum
 #endif
@@ -553,6 +556,7 @@ c     current box coordinates
       enddo
       enddo
       enddo
+ 1244 continue
 
       ! copy send data to buffer
       nxyz = PPICLF_LEX*PPICLF_LEY*PPICLF_LEZ
@@ -756,6 +760,7 @@ c     current box coordinates
       ppiclf_nee = ncell
       nxyz       = PPICLF_LEX*PPICLF_LEY*PPICLF_LEZ
 
+      call ppiclf_prints("-Begin InitOverlapMesh$")
       do ie=1,ppiclf_nee
       do i=1,nxyz
          j = (ie-1)*nxyz + i
@@ -766,6 +771,8 @@ c     current box coordinates
       enddo
 
       call ppiclf_comm_MapOverlapMesh
+      
+      call ppiclf_prints("-End InitOverlapMesh$")
 
       return
       end
@@ -807,7 +814,7 @@ c-----------------------------------------------------------------------
          coords(3) = ppiclf_y(iz,i)
          if(iz .eq. 1) coords(3) = 0.0
          ! rank from zoltan
-         ierr = Zoltan_LB_Point_PP_Assign(zz_obj, coords, nrank, ndum2)
+         ierr = Zoltan_LB_Point_PP_Assign(zz_obj, coords, nrank, ndum)
 #else
          ! rank from binning
          nrank = ndum
@@ -819,11 +826,11 @@ c-----------------------------------------------------------------------
 
          ppiclf_iprop(3,i)  = nrank ! where particle is actually moved
          ppiclf_iprop(4,i)  = nrank ! where particle is actually moved
-! #if PPICLF_ZOLTAN==1
-!          ppiclf_iprop(5,i)  = nrank ! CHANGED TAG
-!          ppiclf_iprop(6,i)  = gids(i) ! CHANGED TAG
-!          ppiclf_iprop(7,i)  = ppiclf_nid ! CHANGED TAG
-! #endif
+#if PPICLF_ZOLTAN==1
+         ppiclf_iprop(5,i)  = nrank ! CHANGED TAG
+         ppiclf_iprop(6,i)  = gids(i) ! CHANGED TAG
+         ppiclf_iprop(7,i)  = ppiclf_nid ! CHANGED TAG
+#endif
       enddo
 
       return
@@ -831,9 +838,6 @@ c-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
       subroutine ppiclf_comm_MoveParticle
 !
-#if PPICLF_ZOLTAN==1
-      use zoltanRCB
-#endif
       implicit none
 !
       include "PPICLF"
@@ -845,10 +849,6 @@ c-----------------------------------------------------------------------
       parameter(lrf = PPICLF_LRS*4 + PPICLF_LRP + PPICLF_LRP2)
       real*8 rwork(lrf,PPICLF_LPART)
       integer*4 i, ic, j0
-#if PPICLF_ZOLTAN==1
-      real*8 ppiclf_vlmin, ppiclf_vlmax
-      external ppiclf_vlmin, ppiclf_vlmax
-#endif
 !
 
       do i=1,ppiclf_npart

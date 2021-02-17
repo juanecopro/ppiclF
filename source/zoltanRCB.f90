@@ -74,7 +74,7 @@
       ierr = Zoltan_Set_param(zz_obj, "RCB_RECTILINEAR_BLOCKS", "TRUE")
       ierr = Zoltan_Set_param(zz_obj, "RETURN_LISTS", "NONE")
 !      ierr = Zoltan_Set_param(zz_obj, "REDUCE_DIMENSIONS", "TRUE")
-!      ierr = Zoltan_Set_param(zz_obj, "DEBUG_LEVEL", "5")
+      ierr = Zoltan_Set_param(zz_obj, "DEBUG_LEVEL", "0")
 !      ierr = Zoltan_Set_param(zz_obj, "AVERAGE_CUTS", "TRUE")
 !      ierr = Zoltan_Set_param(zz_obj, "RCB_RECOMPUTE_BOX", "TRUE")
       ierr = Zoltan_Set_param(zz_obj, "RCB_OUTPUT_LEVEL", "0")
