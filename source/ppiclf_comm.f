@@ -194,6 +194,8 @@ c     if (npt_total .eq. 1) then
         allocate(iprocp(ppiclf_np))
         allocate(iwork(ppiclf_np))
         allocate(part_grid(ppiclf_ndim,PPICLF_LPART))
+        allocate(nbparts(ppiclf_np))
+        allocate(nbprocs(ppiclf_np))
         myrank = ppiclf_nid
         ndimpart = ppiclf_ndim
         icalld=1
@@ -358,20 +360,20 @@ c     if (npt_total .eq. 1) then
       if(ppiclf_nid.gt.0) istart = iprocp(ppiclf_nid)
       do i=1,ppiclf_npart
         gids(i)=istart + i
-        part_grid(ix,i)= ppiclf_y(ix,i)
-        part_grid(iy,i)= ppiclf_y(iy,i)
-        part_grid(iz,i)= ppiclf_y(iz,i)
+c        part_grid(ix,i)= ppiclf_y(ix,i)
+c        part_grid(iy,i)= ppiclf_y(iy,i)
+c        part_grid(iz,i)= ppiclf_y(iz,i)
 !! MAP ONTO UNIFORM GRID
-c        part_grid(ix,i)= floor((ppiclf_y(ix,i)-ppiclf_binb(1))
-c     >                      /grid_dx)*grid_dx +
-c     >                       ppiclf_binb(1)
-c        part_grid(iy,i)= floor((ppiclf_y(iy,i)-ppiclf_binb(3))
-c     >                      /grid_dx)*grid_dx +
-c     >                       ppiclf_binb(3)
-c        ! protect against 2D  case
-c        part_grid(iz,i)= floor((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
-c     >                      /grid_dx)*grid_dx +
-c     >                       ppiclf_binb(iz*2-1)
+        part_grid(ix,i)= floor((ppiclf_y(ix,i)-ppiclf_binb(1))
+     >                      /grid_dx)*grid_dx +
+     >                       ppiclf_binb(1)
+        part_grid(iy,i)= floor((ppiclf_y(iy,i)-ppiclf_binb(3))
+     >                      /grid_dx)*grid_dx +
+     >                       ppiclf_binb(3)
+        ! protect against 2D  case
+        part_grid(iz,i)= floor((ppiclf_y(iz,i)-ppiclf_binb(iz*2-1))
+     >                      /grid_dx)*grid_dx +
+     >                       ppiclf_binb(iz*2-1)
       enddo
 
       call partitionWithRCB(ppiclf_comm)
@@ -479,6 +481,7 @@ c     current box coordinates
       external ppiclf_ivlmin, ppiclf_ivlmax
 #if PPICLF_ZOLTAN==1
       real(Zoltan_DOUBLE) coords(3)
+      integer(Zoltan_INT) nzrank, nzdum
 #endif
 
       ! see which bins are in which elements
@@ -526,7 +529,9 @@ c     >   return
          coords(2) = ryval
          coords(3) = rzval
          if(.not.associated(zz_obj)) goto 1233
-         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nrank,ndum)
+         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nzrank,nzdum)
+         nrank = nzrank
+         ndum = nzdum
 #else
          nrank = ndum
 #endif
@@ -621,7 +626,9 @@ c     >   return
          coords(1) = rxval
          coords(2) = ryval
          coords(3) = rzval
-         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nrank,ndum)
+         ierr = Zoltan_LB_Point_PP_Assign(zz_obj,coords,nzrank,nzdum)
+         nrank = nzrank
+         ndum = nzdum
 #endif
          ppiclf_modgp(i,j,k,ie,1) = ii
          ppiclf_modgp(i,j,k,ie,2) = jj
@@ -824,7 +831,7 @@ c         if(iz .eq. 1) coords(3) = 0.0
          ierr = Zoltan_LB_Point_PP_Assign(zz_obj, coords, nzrank, nzdum)
          nrank = nzrank
          ndum = nzdum
-         write(6,*) 'PART',ppiclf_nid, i, nrank, ndum
+         !write(6,*) 'PART',ppiclf_nid, i, nrank, ndum
 #else
          ! rank from binning
          nrank = ndum
@@ -891,7 +898,7 @@ c         if(iz .eq. 1) coords(3) = 0.0
       if (ppiclf_npart .gt. PPICLF_LPART .or. ppiclf_npart .lt. 0)
      >   call ppiclf_exittr('Increase LPART$',0.0d0,ppiclf_npart)
 
-      write(6,*) 'NumObjs', myrank, ppiclf_npart
+      !write(6,*) 'NumObjs', myrank, ppiclf_npart
       do i=1,ppiclf_npart
          ic = 1
          call ppiclf_copy(ppiclf_y(1,i),rwork(ic,i),PPICLF_LRS)

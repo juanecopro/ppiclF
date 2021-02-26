@@ -49,7 +49,8 @@
          call ppiclf_prints('      End ParticleTag$')
       endif
 
-      if (ppiclf_iglsum(ppiclf_npart,1).gt.0) then
+      if (ppiclf_iglsum(ppiclf_npart,1).gt.0 .and.
+     >    ppiclf_iglsum(npart,1).gt.0) then
          call ppiclf_prints('     -Begin CreateBin$')
             call ppiclf_comm_CreateBin
          call ppiclf_prints('      End CreateBin$')
