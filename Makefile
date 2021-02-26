@@ -8,8 +8,8 @@ CC               = mpiicc  # Valid MPI C compiler
 #OPTFLAGS        = -xCORE-AVX2
 #OPTFLAGS        = -axMIC-AVX512,CORE-AVX2
 OPTFLAGS        = -g -traceback
-FFLAGS          += $(OPTFLAGS) -cpp
-CPFLAGS         += $(OPTFLAGS) -E
+FFLAGS          += $(OPTFLAGS) -cpp -heap-arrays
+CPFLAGS         += $(OPTFLAGS) -E 
 FFLAGS          += -I${HOME}/Zoltan/build/include 
  	           
 INSTALL_LOCATION = .

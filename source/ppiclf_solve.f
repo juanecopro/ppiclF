@@ -186,9 +186,9 @@
       ppiclf_d2chk(2) = 0.0d0
       ppiclf_d2chk(3) = 0.0d0
 
-      ppiclf_n_bins(1) = 0
-      ppiclf_n_bins(2) = 0
-      ppiclf_n_bins(3) = 0
+      ppiclf_n_bins(1) = 1
+      ppiclf_n_bins(2) = 1
+      ppiclf_n_bins(3) = 1
 
       ppiclf_bins_set(1) = 0
       ppiclf_bins_set(2) = 0

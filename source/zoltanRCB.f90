@@ -9,10 +9,9 @@
   implicit none
  
   !! particle data for RCB
-  integer :: numGlobObjs, numLocObjs
   real(8), dimension(:,:), allocatable :: part_grid
   real(8) :: grid_dx
-  integer(ZOLTAN_INT), dimension(:), allocatable :: gids, iwork, iprocp
+  integer(4), dimension(:), allocatable :: gids, iwork, iprocp
   real(Zoltan_DOUBLE), dimension(3) :: locMin, locMax
   integer(Zoltan_INT), dimension(100) :: nbparts, nbprocs
   integer(Zoltan_int) :: numnbparts, numnbprocs
@@ -20,6 +19,7 @@
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! Zoltan data to store in module
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  integer(4) :: numGlobObjs, numLocObjs
   type(Zoltan_Struct), pointer :: zz_obj
   integer(ZOLTAN_INT) :: ierr
   real(ZOLTAN_FLOAT) :: version
@@ -54,6 +54,7 @@
 
     integer(4), intent(in) :: comm
     integer(4) :: i
+    integer(Zoltan_Int) :: ndim
     integer, save :: icalld = 0
 
     if(icalld.eq.0)then
@@ -73,13 +74,13 @@
       ierr = Zoltan_Set_param(zz_obj, "NUM_LOCAL_PARTS", "1")
       ierr = Zoltan_Set_param(zz_obj, "RCB_RECTILINEAR_BLOCKS", "TRUE")
       ierr = Zoltan_Set_param(zz_obj, "RETURN_LISTS", "NONE")
-!      ierr = Zoltan_Set_param(zz_obj, "REDUCE_DIMENSIONS", "TRUE")
-      ierr = Zoltan_Set_param(zz_obj, "DEBUG_LEVEL", "0")
+      ierr = Zoltan_Set_param(zz_obj, "REDUCE_DIMENSIONS", "TRUE")
+      ierr = Zoltan_Set_param(zz_obj, "DEBUG_LEVEL", "1")
 !      ierr = Zoltan_Set_param(zz_obj, "AVERAGE_CUTS", "TRUE")
 !      ierr = Zoltan_Set_param(zz_obj, "RCB_RECOMPUTE_BOX", "TRUE")
-      ierr = Zoltan_Set_param(zz_obj, "RCB_OUTPUT_LEVEL", "0")
+      ierr = Zoltan_Set_param(zz_obj, "RCB_OUTPUT_LEVEL", "1")
 !      ierr = Zoltan_Set_param(zz_obj, "RCB_MAX_ASPECT_RATIO", "5")
-      ierr = Zoltan_Set_param(zz_obj, "RCB_REUSE", "2")
+      ierr = Zoltan_Set_param(zz_obj, "RCB_REUSE", "1")
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !! register query functions
@@ -111,17 +112,18 @@
     !!     exportProcs      -- Process to which I send each of the vertices 
     !!     exportToPart     -- Part to which each vertex will belong 
     !!-----------------------------
+    ierr = Zoltan_Generate_Files(zz_obj, "kdd", 1, 1, 0, 0)
     ierr = Zoltan_LB_Partition(zz_obj, changes, numGidEntries, numLidEntries, &
                                numImport, importGlobalGids, importLocalGids, importProcs, importToPart, &
                                numExport, exportGlobalGids, exportLocalGids, exportProcs, exportToPart)
 
-    ierr = Zoltan_RCB_Box(zz_obj,myrank,ndimpart,locMin(1),locMin(2),locMin(3), &
+    ierr = Zoltan_RCB_Box(zz_obj,myrank,ndim,locMin(1),locMin(2),locMin(3), &
                           locMax(1),locMax(2),locMax(3))
 
-!!    write(6,*) 'myrank', myrank
-!!    write(6,'(2I4)') (exportProcs(i), exportToPart(i), i=1,numExport) 
-!!    write(6,*) 'NUMOBJS',myrank, numExport
-!!    write(6,'(A5,I5,2F10.3)') ('Boxes', myrank, locmin(i), locmax(i), i=1,ndimpart)
+!    write(6,*) 'myrank', myrank
+!    write(6,'(2I4)') (exportProcs(i), exportToPart(i), i=1,numExport) 
+!    write(6,*) 'NUMOBJS',myrank, numExport
+!    write(6,'(A5,I5,2E10.3)') ('Boxes', myrank, locmin(i), locmax(i), i=1,ndimpart)
 
     ierr = Zoltan_LB_Free_Part(importGlobalGids, importLocalGids, importProcs, importToPart)
     ierr = Zoltan_LB_Free_Part(exportGlobalGids, exportLocalGids, exportProcs, exportToPart)
@@ -146,9 +148,9 @@
     integer :: i
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    do i=1,ndimpart
-      geom_vec(i) =  part_grid(i,local_id)
-    enddo
+    geom_vec(1) =  part_grid(1,local_id)
+    geom_vec(2) =  part_grid(2,local_id)
+    geom_vec(ndimpart) =  part_grid(ndimpart,local_id)
 
     ierr = ZOLTAN_OK
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -214,6 +216,7 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     zoltNumGeom = ndimpart
+    ! write(6,*) 'NUM_GEOM_FN', myrank, zoltNumGeom
     ierr = ZOLTAN_OK
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   end function zoltNumGeom
