@@ -42,6 +42,8 @@
     deallocate(iwork)
     deallocate(iprocp)
     deallocate(part_grid)
+    deallocate(nbparts)
+    deallocate(nbprocs)
     call Zoltan_Destroy(zz_obj)
 
 
@@ -112,7 +114,7 @@
     !!     exportProcs      -- Process to which I send each of the vertices 
     !!     exportToPart     -- Part to which each vertex will belong 
     !!-----------------------------
-    ierr = Zoltan_Generate_Files(zz_obj, "kdd", 1, 1, 0, 0)
+!    ierr = Zoltan_Generate_Files(zz_obj, "kdd", 1, 1, 0, 0)
     ierr = Zoltan_LB_Partition(zz_obj, changes, numGidEntries, numLidEntries, &
                                numImport, importGlobalGids, importLocalGids, importProcs, importToPart, &
                                numExport, exportGlobalGids, exportLocalGids, exportProcs, exportToPart)

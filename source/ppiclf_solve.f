@@ -22,14 +22,14 @@
       external ppiclf_iglsum
 !
 
-      call ppiclf_prints('   *Begin AddParticles$')
+c      call ppiclf_prints('   *Begin AddParticles$')
 
       if (ppiclf_npart+npart .gt. PPICLF_LPART .or. npart .lt. 0)
      >   call ppiclf_exittr('Invalid number of particles$',
      >                      0.0,ppiclf_npart+npart)
 
-      call ppiclf_printsi
-     >                ('     -Begin copy particles$',npart)
+c      call ppiclf_printsi
+c     >                ('     -Begin copy particles$',npart)
 
       ! First, append arrays onto existing arrays
       call ppiclf_copy(ppiclf_y(1,ppiclf_npart+1),
@@ -40,31 +40,31 @@
      >                 npart*PPICLF_LRP)
       ppiclf_npart = ppiclf_npart + npart
 
-      call ppiclf_printsi('     -End copy particles$'
-     >                                    ,ppiclf_npart)
+c      call ppiclf_printsi('     -End copy particles$'
+c     >                                    ,ppiclf_npart)
 
       if (.not. PPICLF_RESTART) then
-         call ppiclf_prints('     -Begin ParticleTag$')
+c         call ppiclf_prints('     -Begin ParticleTag$')
             call ppiclf_solve_SetParticleTag(npart)
-         call ppiclf_prints('      End ParticleTag$')
+c         call ppiclf_prints('      End ParticleTag$')
       endif
 
       if (ppiclf_iglsum(ppiclf_npart,1).gt.0 .and.
      >    ppiclf_iglsum(npart,1).gt.0) then
-         call ppiclf_prints('     -Begin CreateBin$')
+c         call ppiclf_prints('     -Begin CreateBin$')
             call ppiclf_comm_CreateBin
-         call ppiclf_prints('      End CreateBin$')
+c         call ppiclf_prints('      End CreateBin$')
 
-         call ppiclf_prints('     -Begin FindParticle$')
+c         call ppiclf_prints('     -Begin FindParticle$')
             call ppiclf_comm_FindParticle
-         call ppiclf_prints('      End FindParticle$')
+c         call ppiclf_prints('      End FindParticle$')
 
-         call ppiclf_prints('     -Begin MoveParticle$')
+c         call ppiclf_prints('     -Begin MoveParticle$')
             call ppiclf_comm_MoveParticle
-         call ppiclf_prints('      End MoveParticle$')
+c         call ppiclf_prints('      End MoveParticle$')
       endif
 
-      call ppiclf_prints('    End AddParticles$')
+c      call ppiclf_prints('    End AddParticles$')
 
       end
 !-----------------------------------------------------------------------

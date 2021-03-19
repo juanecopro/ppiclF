@@ -1471,3 +1471,12 @@ c----------------------------------------------------------------------
       return
       end
 c----------------------------------------------------------------------
+      subroutine ppiclf_zoltan_destroy
+#if PPICLF_ZOLTAN==1
+      use zoltanRCB
+      implicit none
+      
+      call zoltanRCB_cleanup
+#endif
+      return
+      end
