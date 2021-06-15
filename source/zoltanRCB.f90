@@ -3,7 +3,10 @@
 !! 
 !! author: jcolmena@anl.gov
 !!
+#include "PPICLF_USER.h"
+#include "PPICLF_STD.h"
   module zoltanRCB
+#if PPICLF_ZOLTAN==1
   use zoltan
 
   implicit none
@@ -222,4 +225,5 @@
     ierr = ZOLTAN_OK
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   end function zoltNumGeom
+#endif
   end module
