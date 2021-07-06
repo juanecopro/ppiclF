@@ -6,11 +6,11 @@ CC               = mpiicc  # Valid MPI C compiler
 #CPFLAGS         += -qoffload-option,mic,compiler, "-O3" -O3 -axCORE-AVX2 -xSSE4.2 -E
 #OPTFLAGS        = -xmic-avx512
 #OPTFLAGS        = -xCORE-AVX2
-#OPTFLAGS        = -axMIC-AVX512,CORE-AVX2
-OPTFLAGS        = -g -traceback
+OPTFLAGS        = -axMIC-AVX512,CORE-AVX2
+#OPTFLAGS        = -g -traceback
 FFLAGS          += $(OPTFLAGS) -cpp -heap-arrays
 CPFLAGS         += $(OPTFLAGS) -E 
-FFLAGS          += -I${HOME}/Zoltan/build/include 
+#FFLAGS          += -I${HOME}/Zoltan/build/include 
  	           
 INSTALL_LOCATION = .
 
@@ -94,18 +94,19 @@ makeThird: $(SOURCE_ROOT_GSLIB)/install
 	@echo "                       "
 
 clean:
-	 rm -r $(SOURCE_ROOT_PPICLF)/*.o                        
-	 rm -r $(SOURCE_ROOT_PPICLF)/ppiclf.f
-	 rm -r $(SOURCE_ROOT_PPICLF)/PPICLF
-	 rm -r $(SOURCE_ROOT_PPICLF)/libppiclF.a                
-	 rm -r $(SOURCE_ROOT_GSLIB)/gslib                       
-	 rm -r $(SOURCE_ROOT_GSLIB)/lib                         
-	 rm -r $(SOURCE_ROOT_GSLIB)/include                     
-	 rm -r $(SOURCE_ROOT_GSLIB)/*.tar.gz                    
-	 rm -r $(INSTALL_LOCATION)/short_tests/*.pyc            
-	 rm -r $(INSTALL_LOCATION)/short_tests/lib/*.pyc        
-	 rm -r $(INSTALL_LOCATION)/short_tests/test1/test1.log*
-	 rm -r $(INSTALL_LOCATION)/short_tests/test1/*.vtu
+	 rm -rf $(SOURCE_ROOT_PPICLF)/*.o                        
+	 rm -rf $(SOURCE_ROOT_PPICLF)/ppiclf.f
+	 rm -rf $(SOURCE_ROOT_PPICLF)/PPICLF
+	 rm -rf $(SOURCE_ROOT_PPICLF)/libppiclF.a                
+	 rm -rf $(SOURCE_ROOT_GSLIB)/gslib                       
+	 rm -rf $(SOURCE_ROOT_GSLIB)/lib                         
+	 rm -rf $(SOURCE_ROOT_GSLIB)/include                     
+	 rm -rf $(SOURCE_ROOT_GSLIB)/*.tar.gz                    
+	 rm -rf $(INSTALL_LOCATION)/*.mod            
+	 rm -rf $(INSTALL_LOCATION)/short_tests/*.pyc            
+	 rm -rf $(INSTALL_LOCATION)/short_tests/lib/*.pyc        
+	 rm -rf $(INSTALL_LOCATION)/short_tests/test1/test1.log*
+	 rm -rf $(INSTALL_LOCATION)/short_tests/test1/*.vtu
 	 cd $(INSTALL_LOCATION)/short_tests/test1/; \
 	make clean
 
