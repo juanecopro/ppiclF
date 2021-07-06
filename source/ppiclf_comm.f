@@ -789,6 +789,56 @@ c     >  write(6,*) 'nid, neltb', ppiclf_nid, ppiclf_neltb
 
       return
       end
+!-----------------------------------------------------------------------
+      subroutine ppiclf_comm_UpdateOverlapMesh(ncell,lx1,ly1,lz1,
+     >                                       xgrid,ygrid,zgrid)
+#ifdef PPICLC
+     > bind(C, name="ppiclc_comm_UpdateOverlapMesh")
+#endif
+!
+      implicit none
+!
+      include "PPICLF"
+!
+! Input:
+!
+      integer*4 ncell
+      integer*4 lx1
+      integer*4 ly1
+      integer*4 lz1
+      real*8    xgrid(*)
+      real*8    ygrid(*)
+      real*8    zgrid(*)
+!
+! External:
+!
+      integer*4 nxyz, i, j, ie
+!
+      ppiclf_overlap = .true.
+
+      if (.not.ppiclf_overlap)
+     >call ppiclf_exittr('InitOverlap must be before UpdateOverlap$'
+     >                  ,0.0d0,0)
+
+      ppiclf_nee = ncell
+      nxyz       = PPICLF_LEX*PPICLF_LEY*PPICLF_LEZ
+
+      call ppiclf_prints("-Begin UpdateOverlapMesh$")
+      do ie=1,ppiclf_nee
+      do i=1,nxyz
+         j = (ie-1)*nxyz + i
+         ppiclf_xm1bs(i,1,1,1,ie) = xgrid(j)
+         ppiclf_xm1bs(i,1,1,2,ie) = ygrid(j)
+         ppiclf_xm1bs(i,1,1,3,ie) = zgrid(j)
+      enddo
+      enddo
+
+      call ppiclf_comm_MapOverlapMesh
+      
+      call ppiclf_prints("-End UpdateOverlapMesh$")
+
+      return
+      end
 c-----------------------------------------------------------------------
       subroutine ppiclf_comm_FindParticle
 #if PPICLF_ZOLTAN==1
